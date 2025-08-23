@@ -1,0 +1,719 @@
+{% extends "base.html" %}
+
+{% block title %}
+Serial Number Transfer {{ transfer.transfer_number }}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Serial Number Transfer {{ transfer.transfer_number }}</h2>
+                    <div class="d-flex align-items-center mt-2">
+                        {% if transfer.status == 'draft' %}
+                        <span class="badge bg-secondary me-2">Draft</span>
+                        {% elif transfer.status == 'submitted' %}
+                        <span class="badge bg-warning text-dark me-2">Submitted</span>
+                        {% elif transfer.status == 'qc_approved' %}
+                        <span class="badge bg-success me-2">QC Approved</span>
+                        {% elif transfer.status == 'posted' %}
+                        <span class="badge bg-primary me-2">Posted to SAP</span>
+                        {% elif transfer.status == 'rejected' %}
+                        <span class="badge bg-danger me-2">Rejected</span>
+                        {% endif %}
+                        
+                        <small class="text-muted">
+                            Created: {{ transfer.created_at.strftime('%Y-%m-%d %H:%M') }} |
+                            From: {{ transfer.from_warehouse }} → To: {{ transfer.to_warehouse }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer Details -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Transfer Information</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless table-sm">
+                        <tr>
+                            <td><strong>Transfer Number:</strong></td>
+                            <td>{{ transfer.transfer_number }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>From Warehouse:</strong></td>
+                            <td>{{ transfer.from_warehouse }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>To Warehouse:</strong></td>
+                            <td>{{ transfer.to_warehouse }}</td>
+                        </tr>
+<!--                        <tr>-->
+<!--                            <td><strong>Status:</strong></td>-->
+<!--                            <td>-->
+<!--                                {% if transfer.status == 'draft' %}-->
+<!--                                <span class="badge bg-secondary">Draft</span>-->
+<!--                                {% elif transfer.status == 'submitted' %}-->
+<!--                                <span class="badge bg-warning text-dark">Submitted</span>-->
+<!--                                {% elif transfer.status == 'qc_approved' %}-->
+<!--                                <span class="badge bg-success">QC Approved</span>-->
+<!--                                {% elif transfer.status == 'posted' %}-->
+<!--                                <span class="badge bg-primary">Posted to SAP</span>-->
+<!--                                {% elif transfer.status == 'rejected' %}-->
+<!--                                <span class="badge bg-danger">Rejected</span>-->
+<!--                                {% endif %}-->
+<!--                            </td>-->
+<!--                        </tr>-->
+<!--                        {% if transfer.sap_document_number %}-->
+<!--                        <tr>-->
+<!--                            <td><strong>SAP Document:</strong></td>-->
+<!--                            <td><code>{{ transfer.sap_document_number }}</code></td>-->
+<!--                        </tr>-->
+<!--                        {% endif %}-->
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            {% if transfer.notes %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Transfer Information</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless table-sm">
+<!--                        <tr>-->
+<!--                            <td><strong>Transfer Number:</strong></td>-->
+<!--                            <td>{{ transfer.transfer_number }}</td>-->
+<!--                        </tr>-->
+<!--                        <tr>-->
+<!--                            <td><strong>From Warehouse:</strong></td>-->
+<!--                            <td>{{ transfer.from_warehouse }}</td>-->
+<!--                        </tr>-->
+<!--                        <tr>-->
+<!--                            <td><strong>To Warehouse:</strong></td>-->
+<!--                            <td>{{ transfer.to_warehouse }}</td>-->
+<!--                        </tr>-->
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>
+                                {% if transfer.status == 'draft' %}
+                                <span class="badge bg-secondary">Draft</span>
+                                {% elif transfer.status == 'submitted' %}
+                                <span class="badge bg-warning text-dark">Submitted</span>
+                                {% elif transfer.status == 'qc_approved' %}
+                                <span class="badge bg-success">QC Approved</span>
+                                {% elif transfer.status == 'posted' %}
+                                <span class="badge bg-primary">Posted to SAP</span>
+                                {% elif transfer.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if transfer.sap_document_number %}
+                        <tr>
+                            <td><strong>SAP Document:</strong></td>
+                            <td><code>{{ transfer.sap_document_number }}</code></td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td><strong>Notes:</strong></td>
+                            <td><code>{{ transfer.notes }}</code></td>
+                        </tr>
+                    </table>
+                </div>
+<!--                <div class="card-header">-->
+<!--                    <h6 class="mb-0">Notes</h6>-->
+<!--                </div>-->
+<!--                <div class="card-body">-->
+<!--                    <p class="mb-0">{{ transfer.notes }}</p>-->
+<!--                </div>-->
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Items -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            Transfer Items 
+                            <span class="badge bg-light text-dark">{{ transfer.items|length }}</span>
+                        </h6>
+                        {% if transfer.status == 'draft' %}
+                        <button class="btn btn-sm btn-success" onclick="showAddItemModal()">
+                            <i data-feather="plus"></i> Add Item
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if transfer.items %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Item Code</th>
+                                    <th>Description</th>
+                                    <th>Serial Numbers</th>
+                                    <th>Validated</th>
+                                    <th>From → To</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in transfer.items %}
+                                <tr>
+                                    <td><strong>{{ item.item_code }}</strong></td>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ item.serial_numbers|length }} Serial(s)</span>
+                                        <button class="btn btn-sm btn-outline-secondary ms-1" 
+                                                onclick="showSerialNumbers('{{ item.id }}', '{{ item.item_code }}')">
+                                            <i data-feather="list"></i> View
+                                        </button>
+                                    </td>
+                                    <td>
+                                        {% set validated = item.serial_numbers|selectattr("is_validated", "equalto", true)|list|length %}
+                                        {% set total = item.serial_numbers|length %}
+                                        {% if validated == total %}
+                                            <span class="badge bg-success">{{ validated }}/{{ total }} ✓</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">{{ validated }}/{{ total }} ⚠</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ item.from_warehouse_code }}</span>
+                                        <i data-feather="arrow-right" class="mx-1"></i>
+                                        <span class="badge bg-info">{{ item.to_warehouse_code }}</span>
+                                    </td>
+                                    <td>
+                                        {% if transfer.status == 'draft' %}
+                                        <button class="btn btn-sm btn-danger" onclick="removeItem('{{ item.id }}')">
+                                            <i data-feather="trash-2"></i>
+                                        </button>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i data-feather="info"></i>
+                        No items added to this transfer yet. Use the "Add Item" button to start adding items.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('inventory_transfer.serial_index') }}" class="btn btn-secondary">
+                            <i data-feather="arrow-left"></i> Back to Transfer List
+                        </a>
+                        <div>
+                            {% if transfer.status == 'draft' and transfer.items %}
+                            <button class="btn btn-success" onclick="submitTransfer('{{ transfer.id }}')">
+                                <i data-feather="check"></i> Submit for QC Approval
+                            </button>
+                            {% elif transfer.status == 'submitted' %}
+                            {% if current_user.has_permission('qc_dashboard') or current_user.role in ['admin', 'manager'] %}
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="qcApprove('{{ transfer.id }}')">
+                                    <i data-feather="check"></i> QC Approve & Post to SAP B1
+                                </button>
+                                <button class="btn btn-danger" onclick="qcReject('{{ transfer.id }}')">
+                                    <i data-feather="x"></i> QC Reject
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i data-feather="clock"></i>
+                                Transfer submitted and waiting for QC approval.
+                            </div>
+                            {% endif %}
+                            {% elif transfer.status == 'qc_approved' or transfer.status == 'posted' %}
+                            <div class="alert alert-success mb-0">
+                                <i data-feather="check-circle"></i>
+                                Transfer QC approved and posted to SAP B1. SAP Document: {{ transfer.sap_document_number }}
+                            </div>
+                            {% elif transfer.status == 'rejected' %}
+                            <div class="alert alert-danger mb-0">
+                                <i data-feather="x-circle"></i>
+                                Transfer rejected by QC: {{ transfer.qc_notes }}
+                            </div>
+                            {% if current_user.role in ['admin', 'manager'] or transfer.user_id == current_user.id %}
+                            <button class="btn btn-warning mt-2" onclick="reopenTransfer('{{ transfer.id }}')">
+                                <i data-feather="refresh-cw"></i> Reopen Transfer
+                            </button>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Item with Serial Numbers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addItemForm" onsubmit="return addItemWithSerials(event);">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="item_code" class="form-label">Item Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="item_code" name="item_code" required 
+                                       onblur="fetchItemName()" placeholder="Enter item code">
+                                <small class="text-muted">Item name will be auto-populated from SAP</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="item_name" class="form-label">Item Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="item_name" name="item_name" required readonly
+                                       placeholder="Auto-populated from SAP">
+                                <small class="text-muted" id="item_name_status"></small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="serial_numbers" class="form-label">Serial Numbers <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="serial_numbers" name="serial_numbers" rows="8" required
+                                  placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"></textarea>
+                        <small class="text-muted">
+                            Each serial number will be validated against SAP B1 and checked against the specified Item Code.
+                        </small>
+                    </div>
+                    
+                    <div id="validationResults" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-feather="plus"></i> Add Item & Validate Serials
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Serial Numbers Modal -->
+<div class="modal fade" id="serialNumbersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Serial Numbers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="serialNumbersContent">
+                    <!-- Content will be loaded dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAddItemModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addItemModal'));
+    modal.show();
+}
+
+function addItemWithSerials(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validating...';
+    
+    fetch(`/inventory_transfer/serial/{{ transfer.id }}/add_item`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error adding item');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i data-feather="plus"></i> Add Item & Validate Serials';
+    });
+    
+    return false;
+}
+
+function submitTransfer(transferId) {
+    if (confirm('Are you sure you want to submit this transfer? All serial numbers must be validated.')) {
+        fetch(`/inventory_transfer/serial/${transferId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error submitting transfer');
+        });
+    }
+}
+
+function showSerialNumbers(itemId, itemCode) {
+    const modal = new bootstrap.Modal(document.getElementById('serialNumbersModal'));
+    const content = document.getElementById('serialNumbersContent');
+    
+    // Update modal title
+    document.querySelector('#serialNumbersModal .modal-title').textContent = `Serial Numbers for ${itemCode}`;
+    
+    // Load serial numbers via AJAX
+    content.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading...</p></div>';
+    
+    fetch(`/inventory_transfer/serial/items/${itemId}/serials`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let html = '<div class="table-responsive">';
+                html += '<table class="table table-sm">';
+                html += '<thead><tr><th>Serial Number</th><th>Status</th><th>SAP Validation</th><th>Actions</th></tr></thead>';
+                html += '<tbody>';
+                
+                data.serial_numbers.forEach(serial => {
+                    const rowClass = serial.is_validated ? '' : 'table-danger';
+                    html += `<tr class="${rowClass}">`;
+                    html += `<td><code style="color: ${serial.is_validated ? '#212529' : '#dc3545'}; font-weight: bold;">${serial.serial_number}</code></td>`;
+                    html += `<td><span class="badge ${serial.is_validated ? 'bg-success' : 'bg-danger'}">${serial.is_validated ? 'Validated ✓' : 'Invalid ❌'}</span></td>`;
+                    html += `<td><small class="${serial.is_validated ? 'text-muted' : 'text-danger'}">${serial.validation_error || (serial.is_validated ? 'Valid in SAP B1' : 'Not validated')}</small></td>`;
+                    
+                    // Show edit and delete buttons if transfer is still in draft
+                    if (data.transfer_status === 'draft') {
+                        html += `<td>`;
+                        html += `<button class="btn btn-sm btn-outline-primary me-1" onclick="editSerialNumber(${serial.id}, '${serial.serial_number}', ${itemId})" title="Edit Serial Number"><i data-feather="edit-2"></i></button>`;
+                        // Only show delete button for invalid serial numbers
+                        if (!serial.is_validated) {
+                            html += `<button class="btn btn-sm btn-outline-danger" onclick="deleteSerialNumber(${serial.id}, '${serial.serial_number}', ${itemId})" title="Delete Invalid Serial Number"><i data-feather="trash-2"></i></button>`;
+                        }
+                        html += `</td>`;
+                    } else {
+                        html += `<td><span class="text-muted">-</span></td>`;
+                    }
+                    
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table></div>';
+                content.innerHTML = html;
+                
+                // Re-initialize Feather icons for the new content
+                feather.replace();
+            } else {
+                content.innerHTML = `<div class="alert alert-danger">Error loading serial numbers: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            content.innerHTML = '<div class="alert alert-danger">Error loading serial numbers</div>';
+        });
+    
+    modal.show();
+}
+
+function removeItem(itemId) {
+    if (confirm('Are you sure you want to remove this item and all its serial numbers?')) {
+        fetch(`/inventory_transfer/serial/items/${itemId}/delete`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error removing item');
+        });
+    }
+}
+
+function qcApprove(transferId) {
+    const qcNotes = prompt('QC Approval Notes (optional):');
+    if (qcNotes !== null) {  // User clicked OK (even with empty notes)
+        fetch(`/inventory_transfer/serial/${transferId}/qc_approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                qc_notes: qcNotes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error approving transfer');
+        });
+    }
+}
+
+function qcReject(transferId) {
+    const qcNotes = prompt('Rejection Reason (required):');
+    if (qcNotes && qcNotes.trim()) {
+        fetch(`/inventory_transfer/serial/${transferId}/qc_reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                qc_notes: qcNotes.trim()
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error rejecting transfer');
+        });
+    } else if (qcNotes !== null) {
+        alert('Rejection reason is required');
+    }
+}
+
+function reopenTransfer(transferId) {
+    if (confirm('Are you sure you want to reopen this rejected transfer? It will be changed back to Draft status and you can make modifications.')) {
+        fetch(`/inventory_transfer/serial/${transferId}/reopen`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                location.reload();
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error reopening transfer');
+        });
+    }
+}
+
+function deleteSerialNumber(serialId, serialNumber, itemId) {
+    if (confirm(`Are you sure you want to delete the invalid serial number "${serialNumber}"?`)) {
+        fetch(`/inventory_transfer/serial/serials/${serialId}/delete`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ Serial number ${serialNumber} deleted successfully`);
+                // Refresh the serial numbers modal to show updated list
+                showSerialNumbers(itemId, data.item_code || 'Item');
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error deleting serial number');
+        });
+    }
+}
+
+function fetchItemName() {
+    const itemCodeInput = document.getElementById('item_code');
+    const itemNameInput = document.getElementById('item_name');
+    const statusElement = document.getElementById('item_name_status');
+    const itemCode = itemCodeInput.value.trim();
+    
+    if (!itemCode) {
+        itemNameInput.value = '';
+        statusElement.textContent = '';
+        itemNameInput.classList.remove('is-valid', 'is-invalid');
+        return;
+    }
+    
+    // Show loading
+    statusElement.textContent = 'Loading...';
+    statusElement.className = 'text-muted';
+    itemNameInput.value = 'Loading...';
+    itemNameInput.classList.remove('is-valid', 'is-invalid');
+    
+    // Fetch item name from API
+    fetch(`/api/get-item-name?item_code=${encodeURIComponent(itemCode)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                itemNameInput.value = data.item_name;
+                itemNameInput.classList.add('is-valid');
+                itemNameInput.classList.remove('is-invalid');
+                
+                if (data.fallback) {
+                    statusElement.textContent = 'SAP not available - using fallback name';
+                    statusElement.className = 'text-warning';
+                } else {
+                    statusElement.textContent = 'Item name fetched from SAP';
+                    statusElement.className = 'text-success';
+                }
+            } else {
+                itemNameInput.value = `Item ${itemCode}`;
+                itemNameInput.classList.add('is-invalid');
+                itemNameInput.classList.remove('is-valid');
+                statusElement.textContent = data.error || 'Failed to fetch item name';
+                statusElement.className = 'text-danger';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching item name:', error);
+            itemNameInput.value = `Item ${itemCode}`;
+            itemNameInput.classList.add('is-invalid');
+            itemNameInput.classList.remove('is-valid');
+            statusElement.textContent = 'Error fetching item name';
+            statusElement.className = 'text-danger';
+        });
+}
+
+function editSerialNumber(serialId, currentSerialNumber, itemId) {
+    const newSerial = prompt(`Edit Serial Number:`, currentSerialNumber);
+    if (newSerial !== null && newSerial.trim() !== '' && newSerial.trim() !== currentSerialNumber) {
+        const formData = new FormData();
+        formData.append('new_serial_number', newSerial.trim());
+        
+        fetch(`/inventory_transfer/serial/serials/${serialId}/edit`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`✅ ${data.message}`);
+                // Refresh the serial numbers modal to show updated list
+                showSerialNumbers(itemId, data.item_code || 'Item');
+            } else {
+                alert(`❌ Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error editing serial number');
+        });
+    } else if (newSerial !== null && newSerial.trim() === currentSerialNumber) {
+        alert('No changes made - serial number is the same');
+    }
+}
+
+// Camera scanning functions for Serial Transfer
+function scanItemCode() {
+    if (window.barcodeScanner) {
+        // Create temporary video element for scanning
+        const tempVideo = document.createElement('video');
+        tempVideo.id = 'tempItemScanVideo';
+        tempVideo.style.position = 'fixed';
+        tempVideo.style.top = '50%';
+        tempVideo.style.left = '50%';
+        tempVideo.style.transform = 'translate(-50%, -50%)';
+        tempVideo.style.width = '300px';
+        tempVideo.style.height = '200px';
+        tempVideo.style.zIndex = '9999';
+        tempVideo.style.border = '2px solid #007bff';
+        tempVideo.autoplay = true;
+        
+        document.body.appendChild(tempVideo);
+        
+        startBarcodeScanner('tempItemScanVideo', function(code) {
+            document.getElementById('item_code').value = code;
+            document.body.removeChild(tempVideo);
+            stopBarcodeScanner();
+        });
+    } else {
+        const manualCode = prompt('Enter item code manually:');
+        if (manualCode && manualCode.trim()) {
+            document.getElementById('item_code').value = manualCode.trim();
+        }
+    }
+}
+
+// Initialize Feather icons on page load
+feather.replace();
+</script>
+{% endblock %}

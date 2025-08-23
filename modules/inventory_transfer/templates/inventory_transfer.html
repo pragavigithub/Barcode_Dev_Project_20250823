@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Transfer - WMS{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>Inventory Transfer</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTransferModal">
+                <i data-feather="plus"></i> Create Transfer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Documents -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Transfer Documents</h5>
+            </div>
+            <div class="card-body">
+                {% if transfers %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Transfer ID</th>
+                                <th>Request Number</th>
+                                <th>Status</th>
+                                <th>SAP Document</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transfer in transfers %}
+                            <tr>
+                                <td>{{ transfer.id }}</td>
+                                <td>{{ transfer.transfer_request_number }}</td>
+                                <td>
+                                    {% if transfer.status == 'draft' %}
+                                        <span class="badge bg-warning">Draft</span>
+                                    {% elif transfer.status == 'approved' %}
+                                        <span class="badge bg-success">Approved</span>
+                                    {% elif transfer.status == 'rejected' %}
+                                        <span class="badge bg-danger">Rejected</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ transfer.sap_document_number or 'N/A' }}</td>
+                                <td>{{ transfer.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('inventory_transfer_detail', transfer_id=transfer.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i data-feather="eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i data-feather="move" style="width: 48px; height: 48px;" class="text-muted mb-3"></i>
+                    <h5>No Transfer Documents</h5>
+                    <p class="text-muted">Create your first inventory transfer to get started.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Transfer Modal -->
+<div class="modal fade" id="createTransferModal" tabindex="-1" aria-labelledby="createTransferModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTransferModalLabel">Create Inventory Transfer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_inventory_transfer') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="transfer_request_number" class="form-label">Transfer Request Number</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="transfer_request_number" name="transfer_request_number" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="scanTransferRequest()">
+                                <i data-feather="camera"></i> Scan
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="scanner-container" id="transferScannerContainer" style="display: none;">
+                        <video id="transferScanVideo" class="scanner-video" autoplay></video>
+                        <div class="scanner-overlay"></div>
+                    </div>
+                    
+                    <div id="transferValidationResult" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Transfer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function scanTransferRequest() {
+    const container = document.getElementById('transferScannerContainer');
+    const video = document.getElementById('transferScanVideo');
+    
+    container.style.display = 'block';
+    
+    startBarcodeScanner('transferScanVideo', function(code) {
+        document.getElementById('transfer_request_number').value = code;
+        container.style.display = 'none';
+        stopBarcodeScanner();
+        
+        // Validate transfer request
+        validateTransferRequest(code);
+    });
+}
+
+async function validateTransferRequest(requestNumber) {
+    try {
+        const response = await fetch('/api/validate_transfer_request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ request_number: requestNumber })
+        });
+        
+        const data = await response.json();
+        const resultDiv = document.getElementById('transferValidationResult');
+        
+        if (data.valid) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>Valid Transfer Request:</strong> ${requestNumber}
+                    <br><small>Items: ${data.items_count || 'N/A'}</small>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <strong>Invalid Transfer Request:</strong> ${data.error}
+                </div>
+            `;
+        }
+        
+        resultDiv.style.display = 'block';
+    } catch (error) {
+        console.error('Error validating transfer request:', error);
+    }
+}
+
+// Auto-validate when transfer request number is entered manually
+document.getElementById('transfer_request_number').addEventListener('blur', function() {
+    const requestNumber = this.value.trim();
+    if (requestNumber) {
+        validateTransferRequest(requestNumber);
+    }
+});
+
+// Clean up scanner when modal is closed
+document.getElementById('createTransferModal').addEventListener('hidden.bs.modal', function () {
+    stopBarcodeScanner();
+    document.getElementById('transferScannerContainer').style.display = 'none';
+});
+</script>
+{% endblock %}
