@@ -213,6 +213,89 @@
             </div>
         </div>
     </div>
+
+    <!-- Pending Serial Number Transfers -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i data-feather="hash"></i> 
+                            Pending Serial Number Transfer Approvals
+                        </h5>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="refreshData()">
+                                <i data-feather="refresh-cw"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if pending_serial_transfers %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Transfer Number</th>
+                                    <th>From → To</th>
+                                    <th>Created By</th>
+                                    <th>Items Count</th>
+                                    <th>Serial Numbers</th>
+                                    <th>Submitted</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transfer in pending_serial_transfers %}
+                                <tr>
+                                    <td><strong>{{ transfer.transfer_number }}</strong></td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <strong>{{ transfer.from_warehouse or 'N/A' }}</strong>
+                                            <i data-feather="arrow-right" class="mx-2" style="width: 16px; height: 16px;"></i>
+                                            <strong>{{ transfer.to_warehouse or 'N/A' }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>{{ transfer.user.first_name }} {{ transfer.user.last_name }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ transfer.items|length }} items</span>
+                                    </td>
+                                    <td>
+                                        {% set serial_count = transfer.items|sum(attribute='serial_numbers|length') %}
+                                        <span class="badge bg-success">{{ serial_count }} serials</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ transfer.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('inventory_transfer.serial_detail', transfer_id=transfer.id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i data-feather="eye"></i> Review
+                                            </a>
+                                            <button class="btn btn-sm btn-success" onclick="showSerialTransferApprovalModal({{ transfer.id }}, '{{ transfer.transfer_number }}')">
+                                                <i data-feather="check"></i> Approve
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="showSerialTransferRejectionModal({{ transfer.id }}, '{{ transfer.transfer_number }}')">
+                                                <i data-feather="x"></i> Reject
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i data-feather="info"></i>
+                        No pending serial number transfers for approval at this time.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Approval Modal -->
@@ -338,6 +421,68 @@ function showTransferRejectionModal(transferId, transferNumber) {
                 location.reload();
             } else {
                 alert(`Error rejecting transfer: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error rejecting transfer');
+        });
+    }
+}
+
+// Serial Number Transfer approval functions
+function showSerialTransferApprovalModal(transferId, transferNumber) {
+    if (confirm(`Are you sure you want to approve serial number transfer ${transferNumber}? This will post the transfer to SAP B1.`)) {
+        // Make AJAX call to approve serial transfer
+        fetch(`/inventory_transfer/serial/${transferId}/qc_approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ qc_notes: '' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Serial Number Transfer approved successfully! ${data.message}`);
+                location.reload();
+            } else {
+                alert(`Error approving serial transfer: ${data.error}`);
+                // If there's a redirect, go to it
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error approving serial transfer');
+        });
+    }
+}
+
+function showSerialTransferRejectionModal(transferId, transferNumber) {
+    const reason = prompt(`Please enter the reason for rejecting serial number transfer ${transferNumber}:`);
+    if (reason && reason.trim()) {
+        // Make AJAX call to reject serial transfer
+        fetch(`/inventory_transfer/serial/${transferId}/qc_reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ qc_notes: reason.trim() })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Serial Number Transfer rejected successfully! ${data.message}`);
+                location.reload();
+            } else {
+                alert(`Error rejecting serial transfer: ${data.error}`);
+                // If there's a redirect, go to it
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                }
             }
         })
         .catch(error => {

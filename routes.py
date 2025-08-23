@@ -1503,6 +1503,10 @@ def qc_dashboard():
     # Get pending GRPOs for QC approval
     pending_grpos = GRPODocument.query.filter_by(status='submitted').order_by(GRPODocument.created_at.desc()).all()
     
+    # Get pending Serial Number Transfers for QC approval
+    from models import SerialNumberTransfer
+    pending_serial_transfers = SerialNumberTransfer.query.filter_by(status='submitted').order_by(SerialNumberTransfer.created_at.desc()).all()
+    
     # Calculate metrics for today
     from datetime import datetime, date
     today = date.today()
@@ -1518,7 +1522,13 @@ def qc_dashboard():
         db.func.date(InventoryTransfer.qc_approved_at) == today
     ).count()
     
-    approved_today = approved_grpos_today + approved_transfers_today
+    # Count approved serial number transfers today
+    approved_serial_transfers_today = SerialNumberTransfer.query.filter(
+        SerialNumberTransfer.status.in_(['qc_approved', 'posted']),
+        db.func.date(SerialNumberTransfer.qc_approved_at) == today
+    ).count()
+    
+    approved_today = approved_grpos_today + approved_transfers_today + approved_serial_transfers_today
     
     # Count rejected today
     rejected_grpos_today = GRPODocument.query.filter(
@@ -1531,7 +1541,13 @@ def qc_dashboard():
         db.func.date(InventoryTransfer.qc_approved_at) == today
     ).count()
     
-    rejected_today = rejected_grpos_today + rejected_transfers_today
+    # Count rejected serial number transfers today  
+    rejected_serial_transfers_today = SerialNumberTransfer.query.filter(
+        SerialNumberTransfer.status == 'rejected',
+        db.func.date(SerialNumberTransfer.qc_approved_at) == today
+    ).count()
+    
+    rejected_today = rejected_grpos_today + rejected_transfers_today + rejected_serial_transfers_today
     
     # Calculate average processing time
     from sqlalchemy import text
@@ -1630,6 +1646,8 @@ def qc_dashboard():
     return render_template('qc_dashboard.html', 
                          pending_transfers=pending_transfers,
                          pending_grpos=pending_grpos,
+                         pending_serial_transfers=pending_serial_transfers,
+                         pending_count=len(pending_transfers) + len(pending_grpos) + len(pending_serial_transfers),
                          approved_today=approved_today,
                          rejected_today=rejected_today,
                          avg_processing_time=avg_processing_time)

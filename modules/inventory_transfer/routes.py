@@ -557,39 +557,62 @@ def serial_add_item(transfer_id):
         db.session.add(transfer_item)
         db.session.flush()  # Get the ID
         
-        # Validate serial numbers against SAP and add them
+        # **BATCH PROCESSING FOR PERFORMANCE WITH 1000+ SERIAL NUMBERS**
+        # Process serial numbers in batches to avoid timeouts
         validated_count = 0
-        for serial_number in serial_numbers:
-            try:
-                # Validate serial number against SAP with warehouse check
-                validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
-                
-                serial_record = SerialNumberTransferSerial(
-                    transfer_item_id=transfer_item.id,
-                    serial_number=serial_number,
-                    internal_serial_number=validation_result.get('SerialNumber') or validation_result.get('DistNumber', serial_number),
-                    system_serial_number=validation_result.get('SystemNumber'),
-                    is_validated=validation_result.get('valid', False),
-                    validation_error=validation_result.get('error') or validation_result.get('warning')
-                )
-                
-                if validation_result.get('valid'):
-                    validated_count += 1
-                
-                db.session.add(serial_record)
-                
-            except Exception as e:
-                logging.error(f"Error validating serial number {serial_number}: {str(e)}")
-                # Add as unvalidated
-                serial_record = SerialNumberTransferSerial(
-                    transfer_item_id=transfer_item.id,
-                    serial_number=serial_number,
-                    internal_serial_number=serial_number,
-                    is_validated=False,
-                    validation_error=str(e)
-                )
-                db.session.add(serial_record)
+        batch_size = 50  # Process 50 serial numbers at a time
+        total_batches = (len(serial_numbers) + batch_size - 1) // batch_size
         
+        logging.info(f"Processing {len(serial_numbers)} serial numbers in {total_batches} batches of {batch_size}")
+        
+        for batch_index in range(total_batches):
+            start_index = batch_index * batch_size
+            end_index = min(start_index + batch_size, len(serial_numbers))
+            batch = serial_numbers[start_index:end_index]
+            
+            logging.info(f"Processing batch {batch_index + 1}/{total_batches} ({len(batch)} serials)")
+            
+            for serial_number in batch:
+                try:
+                    # Validate serial number against SAP with warehouse check
+                    validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
+                    
+                    serial_record = SerialNumberTransferSerial(
+                        transfer_item_id=transfer_item.id,
+                        serial_number=serial_number,
+                        internal_serial_number=validation_result.get('SerialNumber') or validation_result.get('DistNumber', serial_number),
+                        system_serial_number=validation_result.get('SystemNumber'),
+                        is_validated=validation_result.get('valid', False),
+                        validation_error=validation_result.get('error') or validation_result.get('warning')
+                    )
+                    
+                    if validation_result.get('valid'):
+                        validated_count += 1
+                    
+                    db.session.add(serial_record)
+                    
+                except Exception as e:
+                    logging.error(f"Error validating serial number {serial_number}: {str(e)}")
+                    # Add as unvalidated
+                    serial_record = SerialNumberTransferSerial(
+                        transfer_item_id=transfer_item.id,
+                        serial_number=serial_number,
+                        internal_serial_number=serial_number,
+                        is_validated=False,
+                        validation_error=str(e)
+                    )
+                    db.session.add(serial_record)
+            
+            # Commit each batch to avoid memory issues and provide progress feedback
+            try:
+                db.session.flush()  # Flush instead of commit to maintain transaction
+                logging.info(f"✅ Batch {batch_index + 1}/{total_batches} completed ({validated_count} validated so far)")
+            except Exception as e:
+                logging.error(f"Error processing batch {batch_index + 1}: {str(e)}")
+                db.session.rollback()
+                raise
+        
+        # Final commit after all batches
         db.session.commit()
         
         logging.info(f"✅ Item {item_code} with {len(serial_numbers)} serial numbers added to transfer {transfer_id}")
