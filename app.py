@@ -42,21 +42,26 @@ db_type = None
 database_url_env = os.environ.get("DATABASE_URL", "")
 
 # Try PostgreSQL first if DATABASE_URL is available and contains postgres
-if database_url_env and database_url_env.startswith("postgres"):
+if database_url_env and ("postgres" in database_url_env or "postgresql" in database_url_env):
     try:
-        logging.info("✅ Using PostgreSQL database (Replit environment)")
+        logging.info(f"✅ Using PostgreSQL database (Replit environment): {database_url_env[:50]}...")
+        
+        # Convert postgres:// to postgresql:// if needed for SQLAlchemy compatibility
+        if database_url_env.startswith("postgres://"):
+            database_url_env = database_url_env.replace("postgres://", "postgresql://", 1)
+        
         app.config["SQLALCHEMY_DATABASE_URI"] = database_url_env
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
             "pool_recycle": 300,
             "pool_pre_ping": True,
-            "pool_size": 10,
-            "max_overflow": 20
+            "pool_size": 5,
+            "max_overflow": 10
         }
         db_type = "postgresql"
         
         # Test PostgreSQL connection
         from sqlalchemy import create_engine, text
-        test_engine = create_engine(database_url_env, connect_args={'connect_timeout': 10})
+        test_engine = create_engine(database_url_env, pool_pre_ping=True)
         with test_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logging.info("✅ PostgreSQL database connection successful")

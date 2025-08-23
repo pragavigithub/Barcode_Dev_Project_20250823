@@ -530,14 +530,14 @@ def serial_add_item(transfer_id):
         if not serial_numbers:
             return jsonify({'success': False, 'error': 'At least one serial number is required'}), 400
         
-        # Check if this item already exists in this transfer
-        existing_item = SerialNumberTransferItem.query.filter_by(
-            serial_transfer_id=transfer_id,
-            item_code=item_code
+        # Check if this item already exists in this transfer (case-insensitive)
+        existing_item = SerialNumberTransferItem.query.filter(
+            SerialNumberTransferItem.serial_transfer_id == transfer_id,
+            db.func.upper(SerialNumberTransferItem.item_code) == db.func.upper(item_code.strip())
         ).first()
         
         if existing_item:
-            return jsonify({'success': False, 'error': f'Item {item_code} already exists in this transfer'}), 400
+            return jsonify({'success': False, 'error': f'Item {item_code} already exists in this transfer. Please check existing items before adding new ones.'}), 400
         
         # Create transfer item
         transfer_item = SerialNumberTransferItem(
