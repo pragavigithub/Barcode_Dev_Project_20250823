@@ -64,6 +64,12 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 - **Fixed User Management Role-based Access**: Updated permission checking to properly allow admin role users to access user management functions
 - **Enhanced Admin User**: Updated admin user permissions to include all necessary access rights
 - **Updated MySQL migration**: Ensured all database changes are reflected in the comprehensive migration file
+- **2025-08-23**: Serial Number Transfer Module Enhancements
+- **Fixed Duplicate Line Item Issue**: Enhanced duplicate prevention logic with case-insensitive matching and trimming
+- **Resolved Modal Freezing Issue**: Improved JavaScript event listeners and rendering to prevent UI freezing
+- **QC Workflow Correction**: Disabled direct QC approval/rejection from serial transfer screen, redirected to QC Dashboard
+- **Database Migration**: Successfully migrated from MySQL to PostgreSQL for Replit cloud compatibility
+- **Enhanced Error Handling**: Added better error messages and user guidance for duplicate prevention
 
 ## User Preferences
 - None specified yet

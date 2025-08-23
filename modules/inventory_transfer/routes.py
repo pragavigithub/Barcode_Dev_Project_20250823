@@ -530,14 +530,20 @@ def serial_add_item(transfer_id):
         if not serial_numbers:
             return jsonify({'success': False, 'error': 'At least one serial number is required'}), 400
         
-        # Check if this item already exists in this transfer (case-insensitive)
+        # **ENHANCED DUPLICATE PREVENTION LOGIC FOR SERIAL NUMBER TRANSFERS**
+        # Check if this item already exists in this transfer (case-insensitive with trimming)
+        item_code_clean = item_code.strip().upper()
         existing_item = SerialNumberTransferItem.query.filter(
             SerialNumberTransferItem.serial_transfer_id == transfer_id,
-            db.func.upper(SerialNumberTransferItem.item_code) == db.func.upper(item_code.strip())
+            db.func.upper(db.func.trim(SerialNumberTransferItem.item_code)) == item_code_clean
         ).first()
         
         if existing_item:
-            return jsonify({'success': False, 'error': f'Item {item_code} already exists in this transfer. Please check existing items before adding new ones.'}), 400
+            logging.warning(f"⚠️ Duplicate item prevention: {item_code} already exists in transfer {transfer_id}")
+            return jsonify({
+                'success': False, 
+                'error': f'Item "{item_code}" has already been added to this transfer. Please check existing items or add serial numbers to the existing item instead of creating duplicates.'
+            }), 400
         
         # Create transfer item
         transfer_item = SerialNumberTransferItem(
@@ -651,127 +657,51 @@ def serial_submit(transfer_id):
 @transfer_bp.route('/serial/<int:transfer_id>/qc_approve', methods=['POST'])
 @login_required
 def serial_qc_approve(transfer_id):
-    """QC approve serial number transfer and post to SAP B1"""
-    try:
-        from models import SerialNumberTransfer
-        
-        transfer = SerialNumberTransfer.query.get_or_404(transfer_id)
-        
-        # Check QC permissions
-        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
-            return jsonify({'success': False, 'error': 'QC permissions required'}), 403
-        
-        if transfer.status != 'submitted':
-            return jsonify({'success': False, 'error': 'Only submitted transfers can be approved'}), 400
-        
-        # Check if all serial numbers are validated before approval
-        has_invalid_serials = False
-        invalid_items = []
-        
-        for item in transfer.items:
-            invalid_serials = [s for s in item.serial_numbers if not s.is_validated]
-            if invalid_serials:
-                has_invalid_serials = True
-                invalid_items.append({
-                    'item_code': item.item_code,
-                    'invalid_count': len(invalid_serials)
-                })
-        
-        if has_invalid_serials:
-            invalid_summary = ', '.join([f"{i['item_code']} ({i['invalid_count']} invalid)" for i in invalid_items])
-            return jsonify({
-                'success': False, 
-                'error': f'Cannot approve transfer with invalid serial numbers: {invalid_summary}. Please validate all serial numbers first.'
-            }), 400
-        
-        # Get QC notes
-        qc_notes = request.json.get('qc_notes', '') if request.is_json else request.form.get('qc_notes', '')
-        
-        # Mark items as approved (only if all serials are valid)
-        for item in transfer.items:
-            item.qc_status = 'approved'
-        
-        # Update transfer status to qc_approved first
-        transfer.status = 'qc_approved'
-        transfer.qc_approver_id = current_user.id
-        transfer.qc_approved_at = datetime.utcnow()
-        transfer.qc_notes = qc_notes
-        
-        # Post to SAP B1
-        try:
-            from sap_integration import SAPIntegration
-            sap = SAPIntegration()
-            
-            sap_result = sap.create_serial_number_stock_transfer(transfer)
-            
-            if sap_result.get('success'):
-                transfer.sap_document_number = str(sap_result.get('document_number'))
-                transfer.status = 'posted'
-                message = f'Serial Number Transfer QC approved and posted to SAP B1 as {transfer.sap_document_number}'
-                logging.info(f"✅ {message}")
-            else:
-                # Keep as qc_approved but note SAP error
-                message = f'Serial Number Transfer QC approved but SAP posting failed: {sap_result.get("error")}'
-                logging.warning(f"⚠️ {message}")
-                
-        except Exception as sap_error:
-            # Keep as qc_approved but note SAP error
-            message = f'Serial Number Transfer QC approved but SAP posting failed: {str(sap_error)}'
-            logging.error(f"❌ SAP posting error: {str(sap_error)}")
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': message,
-            'status': transfer.status,
-            'sap_document_number': transfer.sap_document_number
-        })
-        
-    except Exception as e:
-        logging.error(f"Error approving serial transfer: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+    """Redirect to QC Dashboard - Direct approval not allowed"""
+    logging.warning(f"⚠️ Direct QC approval attempted for serial transfer {transfer_id} - redirecting to QC Dashboard")
+    return jsonify({
+        'success': False, 
+        'error': 'Direct QC approval from serial transfer screen is not allowed. Please use the QC Dashboard for approval workflow.',
+        'redirect': '/dashboard?filter=qc_dashboard'
+    }), 400
 
 @transfer_bp.route('/serial/<int:transfer_id>/qc_reject', methods=['POST']) 
 @login_required
 def serial_qc_reject(transfer_id):
-    """QC reject serial number transfer"""
+    """Redirect to QC Dashboard - Direct rejection not allowed"""
+    logging.warning(f"⚠️ Direct QC rejection attempted for serial transfer {transfer_id} - redirecting to QC Dashboard")
+    return jsonify({
+        'success': False, 
+        'error': 'Direct QC rejection from serial transfer screen is not allowed. Please use the QC Dashboard for approval workflow.',
+        'redirect': '/dashboard?filter=qc_dashboard'
+    }), 400
+
+@transfer_bp.route('/serial/<int:transfer_id>/reopen', methods=['POST'])
+@login_required
+def serial_reopen(transfer_id):
+    """Reopen rejected serial number transfer"""
     try:
         from models import SerialNumberTransfer
         
         transfer = SerialNumberTransfer.query.get_or_404(transfer_id)
         
-        # Check QC permissions
-        if not current_user.has_permission('qc_dashboard') and current_user.role not in ['admin', 'manager']:
-            return jsonify({'success': False, 'error': 'QC permissions required'}), 403
+        # Check permissions
+        if transfer.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
         
-        if transfer.status != 'submitted':
-            return jsonify({'success': False, 'error': 'Only submitted transfers can be rejected'}), 400
+        if transfer.status != 'rejected':
+            return jsonify({'success': False, 'error': 'Only rejected transfers can be reopened'}), 400
         
-        # Get rejection reason
-        qc_notes = request.json.get('qc_notes', '') if request.is_json else request.form.get('qc_notes', '')
-        
-        if not qc_notes:
-            return jsonify({'success': False, 'error': 'Rejection reason is required'}), 400
-        
-        # Mark items as rejected
-        for item in transfer.items:
-            item.qc_status = 'rejected'
-        
-        # Update transfer status
-        transfer.status = 'rejected'
-        transfer.qc_approver_id = current_user.id
-        transfer.qc_approved_at = datetime.utcnow()
-        transfer.qc_notes = qc_notes
+        # Reset status to draft
+        transfer.status = 'draft'
+        transfer.qc_approver_id = None
+        transfer.qc_approved_at = None
+        transfer.qc_notes = None
         
         db.session.commit()
         
-        logging.info(f"❌ Serial Number Transfer {transfer_id} rejected by QC")
-        return jsonify({
-            'success': True,
-            'message': 'Serial Number Transfer rejected by QC',
-            'status': 'rejected'
-        })
+        logging.info(f"🔄 Serial Number Transfer {transfer_id} reopened")
+        return jsonify({'success': True, 'message': 'Transfer reopened and changed to Draft status'})
         
     except Exception as e:
         logging.error(f"Error rejecting serial transfer: {str(e)}")
