@@ -1184,11 +1184,34 @@ def serial_transfer_qc_approve(transfer_id):
         data = request.get_json() or {}
         qc_notes = data.get('qc_notes', '')
         
-        # Update transfer status to approved
+        # **SAP B1 POSTING** - Create Stock Transfer in SAP B1
+        from sap_integration import sap_b1
+        sap_document_number = None
+        sap_error = None
+        
+        try:
+            logging.info(f"🚀 Posting Serial Number Transfer {transfer.transfer_number} to SAP B1...")
+            
+            # Create Stock Transfer in SAP B1
+            sap_result = sap_b1.create_serial_number_stock_transfer(transfer)
+            
+            if sap_result.get('success'):
+                sap_document_number = sap_result.get('document_number')
+                logging.info(f"✅ Successfully posted to SAP B1: Document {sap_document_number}")
+            else:
+                sap_error = sap_result.get('error', 'Unknown SAP error')
+                logging.error(f"❌ SAP B1 posting failed: {sap_error}")
+                
+        except Exception as e:
+            sap_error = str(e)
+            logging.error(f"❌ SAP B1 posting exception: {str(e)}")
+        
+        # Update transfer status to approved (regardless of SAP result for now)
         transfer.status = 'qc_approved'
         transfer.qc_approver_id = current_user.id
         transfer.qc_approved_at = datetime.utcnow()
         transfer.qc_notes = qc_notes
+        transfer.sap_document_number = sap_document_number
         
         # Update all items to approved status
         for item in transfer.items:
@@ -1198,11 +1221,21 @@ def serial_transfer_qc_approve(transfer_id):
         
         logging.info(f"✅ Serial Number Transfer {transfer.transfer_number} approved by QC user {current_user.username}")
         
+        # Prepare response message
+        if sap_document_number:
+            message = f'Serial Number Transfer {transfer.transfer_number} approved and posted to SAP B1 as {sap_document_number}'
+        elif sap_error:
+            message = f'Serial Number Transfer {transfer.transfer_number} approved locally. SAP posting failed: {sap_error}'
+        else:
+            message = f'Serial Number Transfer {transfer.transfer_number} approved successfully'
+        
         return jsonify({
             'success': True,
-            'message': f'Serial Number Transfer {transfer.transfer_number} approved successfully',
+            'message': message,
             'transfer_id': transfer_id,
-            'status': 'qc_approved'
+            'status': 'qc_approved',
+            'sap_document_number': sap_document_number,
+            'sap_error': sap_error
         })
         
     except Exception as e:

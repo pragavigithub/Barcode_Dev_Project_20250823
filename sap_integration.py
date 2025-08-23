@@ -47,7 +47,7 @@ class SAPIntegration:
         try:
             response = self.session.post(login_url,
                                          json=login_data,
-                                         timeout=10)
+                                         timeout=30)
             if response.status_code == 200:
                 self.session_id = response.json().get('SessionId')
                 logging.info("Successfully logged in to SAP B1")
@@ -227,7 +227,7 @@ class SAPIntegration:
         url = f"{self.base_url}/b1s/v1/PurchaseOrders?$filter=DocNum eq {po_number}"
 
         try:
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=30)
             if response.status_code == 200:
                 data = response.json()
                 if data['value']:
@@ -716,7 +716,7 @@ class SAPIntegration:
             }
             
             logging.info(f"🔍 Fetching batch details for item {item_code} from SAP B1")
-            response = requests.get(url, headers=headers, params=params, verify=False, timeout=10)
+            response = requests.get(url, headers=headers, params=params, verify=False, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -901,7 +901,7 @@ class SAPIntegration:
             # Use the exact API URL format from user's request
             url = f"{self.base_url}/b1s/v1/BinLocations?$select=BinCode,Warehouse&$filter=AbsEntry eq {bin_abs_entry}"
             
-            response = self.session.get(url, timeout=10)
+            response = self.session.get(url, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -2725,7 +2725,7 @@ class SAPIntegration:
                 }
             
             # Make API call with existing session
-            response = self.session.post(api_url, json=payload, timeout=10)
+            response = self.session.post(api_url, json=payload, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
