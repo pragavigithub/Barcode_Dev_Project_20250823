@@ -559,7 +559,7 @@ DATABASE_URL=mysql+pymysql://{config['user']}:{config['password']}@{config['host
 SESSION_SECRET=your-secret-key-change-in-production
 
 # SAP B1 Configuration (Update with your SAP server details)
-SAP_B1_SERVER=https://192.167.1.5:50000
+SAP_B1_SERVER=https://192.168.1.5:50000
 SAP_B1_USERNAME=manager
 SAP_B1_PASSWORD=1422
 SAP_B1_COMPANY_DB=EINV-TESTDB-LIVE-HUST
