@@ -2769,8 +2769,8 @@ class SAPIntegration:
                 'error': f'Validation error: {str(e)}'
             }
 
-    def validate_serial_number_with_item(self, serial_number, item_code):
-        """Validate serial number against SAP B1 API with item code verification"""
+    def validate_serial_number_with_item(self, serial_number, item_code, warehouse_code=None):
+        """Validate serial number against SAP B1 API using Series_Validation query for timeout prevention"""
         if not self.ensure_logged_in():
             logging.warning("SAP B1 not available, cannot validate serial number")
             return {
@@ -2779,56 +2779,87 @@ class SAPIntegration:
             }
         
         try:
-            # SAP B1 API endpoint for SerialNumberDetails
-            api_url = f"{self.base_url}/b1s/v1/SerialNumberDetails"
+            # **ADVANCED SAP B1 API: Using Series_Validation Query to prevent timeouts**
+            # This endpoint is optimized for high-volume serial validation
+            api_url = f"{self.base_url}/b1s/v1/SQLQueries('Series_Validation')/List"
             
-            # Add filter for serial number
-            params = {
-                '$filter': f"SerialNumber eq '{serial_number}'"
+            # Construct parameters exactly as specified by user for optimal SAP performance
+            param_string = f"series='{serial_number}'&itemCode='{item_code}'"
+            if warehouse_code:
+                param_string += f"&whsCode='{warehouse_code}'"
+            
+            request_body = {
+                "ParamList": param_string
             }
             
-            # Make API call with existing session
-            response = self.session.get(api_url, params=params, timeout=10)
+            # **ONE-BY-ONE VALIDATION** - Single call per serial to prevent SAP timeout
+            logging.debug(f"🔍 SAP B1 Series Validation: {serial_number} for item {item_code}")
+            
+            # Make POST request with timeout optimized for single-item validation
+            response = self.session.post(
+                api_url, 
+                json=request_body, 
+                timeout=8,  # Shorter timeout for individual validation
+                headers={'Content-Type': 'application/json'}
+            )
             
             if response.status_code == 200:
                 data = response.json()
                 
+                # Parse Series_Validation query results
                 if data.get('value') and len(data['value']) > 0:
-                    serial_data = data['value'][0]
+                    result_data = data['value'][0]
                     
-                    # Check if item code matches
-                    if serial_data.get('ItemCode') == item_code:
+                    # Extract validation results from query response
+                    is_valid = result_data.get('Valid', 'N') == 'Y'
+                    serial_found = result_data.get('SerialNumber') == serial_number
+                    item_match = result_data.get('ItemCode') == item_code
+                    
+                    if is_valid and serial_found and item_match:
                         return {
                             'valid': True,
-                            'SerialNumber': serial_data.get('SerialNumber'),
-                            'SystemNumber': serial_data.get('SystemNumber'),
-                            'ItemCode': serial_data.get('ItemCode'),
-                            'ItemDescription': serial_data.get('ItemDescription'),
-                            'AdmissionDate': serial_data.get('AdmissionDate'),
-                            'ExpirationDate': serial_data.get('ExpirationDate'),
-                            'Location': serial_data.get('Location')
+                            'SerialNumber': result_data.get('SerialNumber', serial_number),
+                            'SystemNumber': result_data.get('SystemNumber'),
+                            'ItemCode': result_data.get('ItemCode', item_code),
+                            'ItemDescription': result_data.get('ItemDescription'),
+                            'WarehouseCode': result_data.get('WarehouseCode', warehouse_code),
+                            'Location': result_data.get('Location'),
+                            'AdmissionDate': result_data.get('AdmissionDate'),
+                            'ExpirationDate': result_data.get('ExpirationDate'),
+                            'validation_method': 'Series_Validation_Query'
+                        }
+                    elif not item_match:
+                        return {
+                            'valid': False,
+                            'error': f'Serial {serial_number} belongs to item {result_data.get("ItemCode")}, not {item_code}',
+                            'found_item': result_data.get('ItemCode')
                         }
                     else:
                         return {
                             'valid': False,
-                            'error': f'Serial number belongs to item {serial_data.get("ItemCode")}, not {item_code}'
+                            'error': f'Serial number {serial_number} validation failed in SAP B1',
+                            'sap_response': result_data
                         }
                 else:
                     return {
                         'valid': False,
-                        'error': f'Serial number {serial_number} not found in SAP B1'
+                        'error': f'Serial number {serial_number} not found in SAP B1 warehouse {warehouse_code}',
+                        'warehouse': warehouse_code
                     }
             else:
+                logging.error(f"SAP Series_Validation API error: {response.status_code} - {response.text}")
                 return {
                     'valid': False,
-                    'error': f'SAP API error: {response.status_code} - {response.text}'
+                    'error': f'SAP API error: {response.status_code} - {response.text[:200]}',
+                    'api_endpoint': 'Series_Validation'
                 }
                 
         except Exception as e:
-            logging.error(f"Error validating serial number with SAP: {str(e)}")
+            logging.error(f"Error validating serial number with SAP Series_Validation: {str(e)}")
             return {
                 'valid': False,
-                'error': f'Validation error: {str(e)}'
+                'error': f'Validation error: {str(e)}',
+                'validation_method': 'Series_Validation_Query'
             }
 
     def create_serial_number_stock_transfer(self, serial_transfer_document):

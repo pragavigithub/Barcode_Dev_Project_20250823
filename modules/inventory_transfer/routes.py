@@ -602,7 +602,7 @@ def serial_add_item(transfer_id):
             
             for serial_number in batch:
                 try:
-                    # Validate serial number against SAP with warehouse check
+                    # **ONE-BY-ONE SAP VALIDATION** to prevent timeouts for 1000+ items
                     validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
                     
                     serial_record = SerialNumberTransferSerial(
@@ -616,8 +616,18 @@ def serial_add_item(transfer_id):
                     
                     if validation_result.get('valid'):
                         validated_count += 1
+                    else:
+                        failed_count += 1
                     
                     db.session.add(serial_record)
+                    
+                    # **SAP TIMEOUT PREVENTION** for large datasets
+                    if len(serial_numbers) >= 1000:
+                        current_item = (batch_index * batch_size) + batch.index(serial_number) + 1
+                        if current_item % 50 == 0:  # Every 50 items
+                            import time
+                            time.sleep(0.05)  # 50ms delay to prevent SAP overload
+                            logging.debug(f"🕰️ SAP timeout prevention: Processed {current_item}/{len(serial_numbers)} items")
                     
                 except Exception as e:
                     logging.error(f"Error validating serial number {serial_number}: {str(e)}")
