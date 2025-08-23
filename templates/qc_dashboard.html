@@ -262,7 +262,7 @@
                                         <span class="badge bg-info">{{ transfer.items|length }} items</span>
                                     </td>
                                     <td>
-                                        {% set serial_count = transfer.items|sum(attribute='serial_numbers|length') %}
+                                        {% set serial_count = transfer.items|map(attribute='serial_numbers')|map('length')|sum %}
                                         <span class="badge bg-success">{{ serial_count }} serials</span>
                                     </td>
                                     <td>

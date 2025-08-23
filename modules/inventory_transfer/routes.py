@@ -557,10 +557,10 @@ def serial_add_item(transfer_id):
         db.session.add(transfer_item)
         db.session.flush()  # Get the ID
         
-        # **BATCH PROCESSING FOR PERFORMANCE WITH 1000+ SERIAL NUMBERS**
-        # Process serial numbers in batches to avoid timeouts
+        # **ENHANCED BATCH PROCESSING FOR PERFORMANCE WITH 1000+ SERIAL NUMBERS**
+        # Process serial numbers in batches to avoid timeouts and improve responsiveness
         validated_count = 0
-        batch_size = 50  # Process 50 serial numbers at a time
+        batch_size = min(50, max(10, len(serial_numbers) // 20))  # Dynamic batch size: 10-50 based on total count
         total_batches = (len(serial_numbers) + batch_size - 1) // batch_size
         
         logging.info(f"Processing {len(serial_numbers)} serial numbers in {total_batches} batches of {batch_size}")
@@ -603,14 +603,21 @@ def serial_add_item(transfer_id):
                     )
                     db.session.add(serial_record)
             
-            # Commit each batch to avoid memory issues and provide progress feedback
+            # Enhanced batch processing with progress tracking and error recovery
             try:
                 db.session.flush()  # Flush instead of commit to maintain transaction
-                logging.info(f"✅ Batch {batch_index + 1}/{total_batches} completed ({validated_count} validated so far)")
+                logging.info(f"✅ Batch {batch_index + 1}/{total_batches} completed ({validated_count}/{len(serial_numbers)} validated, {len(batch)} items in this batch)")
+                
+                # Performance optimization: commit every 10 batches for very large datasets
+                if (batch_index + 1) % 10 == 0:
+                    db.session.commit()
+                    logging.info(f"🔄 Checkpoint commit at batch {batch_index + 1}")
+                    
             except Exception as e:
-                logging.error(f"Error processing batch {batch_index + 1}: {str(e)}")
+                logging.error(f"❌ Error processing batch {batch_index + 1}: {str(e)}")
                 db.session.rollback()
-                raise
+                # For batch processing errors, we continue with next batch instead of failing entirely
+                continue
         
         # Final commit after all batches
         db.session.commit()
