@@ -239,13 +239,12 @@ Serial Number Transfer {{ transfer.transfer_number }}
                             </button>
                             {% elif transfer.status == 'submitted' %}
                             {% if current_user.has_permission('qc_dashboard') or current_user.role in ['admin', 'manager'] %}
-                            <div class="btn-group">
-                                <button class="btn btn-success" onclick="qcApprove('{{ transfer.id }}')">
-                                    <i data-feather="check"></i> QC Approve & Post to SAP B1
-                                </button>
-                                <button class="btn btn-danger" onclick="qcReject('{{ transfer.id }}')">
-                                    <i data-feather="x"></i> QC Reject
-                                </button>
+                            <div class="alert alert-warning mb-0">
+                                <i data-feather="clock"></i>
+                                Transfer submitted for QC approval. 
+                                <a href="{{ url_for('dashboard') }}?filter=qc_dashboard" class="btn btn-warning btn-sm ms-2">
+                                    <i data-feather="clipboard-check"></i> Go to QC Dashboard
+                                </a>
                             </div>
                             {% else %}
                             <div class="alert alert-info mb-0">
@@ -496,6 +495,10 @@ function renderSerialsTable() {
     const content = document.getElementById('serialNumbersContent');
     const filterValue = document.getElementById('validationFilter').value;
     
+    if (!content || !allSerialNumbers) {
+        return;
+    }
+    
     // Filter serials based on validation status
     let filteredSerials = allSerialNumbers;
     if (filterValue === 'valid') {
@@ -522,7 +525,7 @@ function renderSerialsTable() {
         
         // Add checkbox for selection if in draft mode
         if (currentTransferStatus === 'draft') {
-            html += `<td><input type="checkbox" class="serial-checkbox" value="${serial.id}" onchange="updateDeleteButton()"></td>`;
+            html += `<td><input type="checkbox" class="serial-checkbox" value="${serial.id}"></td>`;
         }
         
         html += `<td><code style="color: ${serial.is_validated ? '#212529' : '#dc3545'}; font-weight: bold;">${serial.serial_number}</code></td>`;
@@ -533,7 +536,6 @@ function renderSerialsTable() {
         if (currentTransferStatus === 'draft') {
             html += `<td>`;
             html += `<button class="btn btn-sm btn-outline-primary me-1" onclick="editSerialNumber(${serial.id}, '${serial.serial_number}', ${currentItemId})" title="Edit Serial Number"><i data-feather="edit-2"></i></button>`;
-            // Show delete button for all serial numbers (not just invalid ones)
             html += `<button class="btn btn-sm btn-outline-danger" onclick="deleteSerialNumber(${serial.id}, '${serial.serial_number}', ${currentItemId})" title="Delete Serial Number"><i data-feather="trash-2"></i></button>`;
             html += `</td>`;
         } else {
@@ -551,14 +553,24 @@ function renderSerialsTable() {
     html += '</tbody></table></div>';
     content.innerHTML = html;
     
-    // Update delete button visibility
-    updateDeleteButton();
+    // Add event listeners to checkboxes after rendering
+    setTimeout(() => {
+        const checkboxes = document.querySelectorAll('.serial-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateDeleteButton);
+        });
+        
+        updateDeleteButton();
+        
+        // Re-initialize Feather icons only once after DOM is ready
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    }, 10);
 }
 
 function filterSerials() {
     renderSerialsTable();
-    // Re-initialize Feather icons after re-rendering
-    feather.replace();
 }
 
 function toggleAllSerials() {
@@ -593,11 +605,13 @@ function updateDeleteButton() {
     const checkedBoxes = document.querySelectorAll('.serial-checkbox:checked');
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     
-    if (checkedBoxes.length > 0) {
-        deleteBtn.style.display = 'inline-block';
-        deleteBtn.textContent = `Delete Selected (${checkedBoxes.length})`;
-    } else {
-        deleteBtn.style.display = 'none';
+    if (deleteBtn) {
+        if (checkedBoxes.length > 0) {
+            deleteBtn.style.display = 'inline-block';
+            deleteBtn.innerHTML = `<i data-feather="trash-2"></i> Delete Selected (${checkedBoxes.length})`;
+        } else {
+            deleteBtn.style.display = 'none';
+        }
     }
 }
 
@@ -611,6 +625,13 @@ function deleteSelectedSerials() {
     }
     
     if (confirm(`Are you sure you want to delete ${serialIds.length} selected serial number(s)?`)) {
+        // Show loading state
+        const deleteBtn = document.getElementById('deleteSelectedBtn');
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deleting...';
+        }
+        
         // Delete multiple serials
         const deletePromises = serialIds.map(serialId => 
             fetch(`/inventory_transfer/serial/serials/${serialId}/delete`, {
@@ -635,6 +656,12 @@ function deleteSelectedSerials() {
             .catch(error => {
                 console.error('Error:', error);
                 alert('❌ Error deleting serial numbers');
+            })
+            .finally(() => {
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerHTML = '<i data-feather="trash-2"></i> Delete Selected';
+                }
             });
     }
 }
@@ -660,63 +687,6 @@ function removeItem(itemId) {
     }
 }
 
-function qcApprove(transferId) {
-    const qcNotes = prompt('QC Approval Notes (optional):');
-    if (qcNotes !== null) {  // User clicked OK (even with empty notes)
-        fetch(`/inventory_transfer/serial/${transferId}/qc_approve`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                qc_notes: qcNotes
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(`✅ ${data.message}`);
-                location.reload();
-            } else {
-                alert(`❌ Error: ${data.error}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('❌ Error approving transfer');
-        });
-    }
-}
-
-function qcReject(transferId) {
-    const qcNotes = prompt('Rejection Reason (required):');
-    if (qcNotes && qcNotes.trim()) {
-        fetch(`/inventory_transfer/serial/${transferId}/qc_reject`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                qc_notes: qcNotes.trim()
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(`✅ ${data.message}`);
-                location.reload();
-            } else {
-                alert(`❌ Error: ${data.error}`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('❌ Error rejecting transfer');
-        });
-    } else if (qcNotes !== null) {
-        alert('Rejection reason is required');
-    }
-}
 
 function reopenTransfer(transferId) {
     if (confirm('Are you sure you want to reopen this rejected transfer? It will be changed back to Draft status and you can make modifications.')) {
