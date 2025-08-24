@@ -55,7 +55,8 @@ def detail(transfer_id):
     sap_transfer_data = None
     if not transfer.from_warehouse or not transfer.to_warehouse:
         try:
-            from sap_integration import sap_b1
+            from sap_integration import SAPIntegration
+            sap_b1 = SAPIntegration()
             logging.info(f"🔍 Fetching SAP data for transfer {transfer.transfer_request_number} (DB warehouses: From={transfer.from_warehouse}, To={transfer.to_warehouse})")
             sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
             if sap_transfer_data:
@@ -1247,7 +1248,8 @@ def serial_transfer_qc_approve(transfer_id):
         qc_notes = data.get('qc_notes', '')
         
         # **SAP B1 POSTING** - Create Stock Transfer in SAP B1
-        from sap_integration import sap_b1
+        from sap_integration import SAPIntegration
+        sap_b1 = SAPIntegration()
         sap_document_number = None
         sap_error = None
         
