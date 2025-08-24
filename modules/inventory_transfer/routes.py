@@ -51,7 +51,18 @@ def detail(transfer_id):
         flash('Access denied - You can only view your own transfers', 'error')
         return redirect(url_for('inventory_transfer.index'))
     
-    return render_template('inventory_transfer_detail.html', transfer=transfer)
+    # Fetch SAP data for warehouse display if database fields are empty
+    sap_transfer_data = None
+    if not transfer.from_warehouse or not transfer.to_warehouse:
+        try:
+            from sap_integration import sap_b1
+            sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
+            if sap_transfer_data:
+                logging.info(f"✅ Fetched SAP warehouse data for display: From={sap_transfer_data.get('FromWarehouse')}, To={sap_transfer_data.get('ToWarehouse')}")
+        except Exception as e:
+            logging.warning(f"Could not fetch SAP data for display: {e}")
+    
+    return render_template('inventory_transfer_detail.html', transfer=transfer, sap_transfer_data=sap_transfer_data)
 
 @transfer_bp.route('/create', methods=['GET', 'POST'])
 @login_required

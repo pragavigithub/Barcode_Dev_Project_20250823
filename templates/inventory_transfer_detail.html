@@ -47,8 +47,24 @@
                             <p><strong>Transfer Request:</strong> {{ transfer.transfer_request_number }}</p>
                             <p><strong>SAP Document:</strong> {{ transfer.sap_document_number or 'Not assigned' }}</p>
                             <p><strong>Status:</strong> {{ transfer.status.title() }}</p>
-                            <p><strong>From Warehouse:</strong> {{ transfer.from_warehouse or 'Not specified' }}</p>
-                            <p><strong>To Warehouse:</strong> {{ transfer.to_warehouse or 'Not specified' }}</p>
+                            <p><strong>From Warehouse:</strong> 
+                                {% if transfer.from_warehouse %}
+                                    {{ transfer.from_warehouse }}
+                                {% elif sap_transfer_data and sap_transfer_data.get('FromWarehouse') %}
+                                    {{ sap_transfer_data.get('FromWarehouse') }}
+                                {% else %}
+                                    Not specified
+                                {% endif %}
+                            </p>
+                            <p><strong>To Warehouse:</strong> 
+                                {% if transfer.to_warehouse %}
+                                    {{ transfer.to_warehouse }}
+                                {% elif sap_transfer_data and sap_transfer_data.get('ToWarehouse') %}
+                                    {{ sap_transfer_data.get('ToWarehouse') }}
+                                {% else %}
+                                    Not specified
+                                {% endif %}
+                            </p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Created By:</strong> {{ transfer.user.first_name }} {{ transfer.user.last_name }}</p>
