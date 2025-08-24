@@ -80,6 +80,18 @@ def create():
             flash(f'Transfer already exists for request {transfer_request_number}', 'warning')
             return redirect(url_for('inventory_transfer.detail', transfer_id=existing_transfer.id))
         
+        # Fetch warehouse data from SAP B1 if not provided in form
+        if not from_warehouse or not to_warehouse:
+            try:
+                from sap_integration import sap_b1
+                sap_data = sap_b1.get_inventory_transfer_request(transfer_request_number)
+                if sap_data:
+                    from_warehouse = from_warehouse or sap_data.get('FromWarehouse')
+                    to_warehouse = to_warehouse or sap_data.get('ToWarehouse')
+                    logging.info(f"✅ Fetched warehouses from SAP: From={from_warehouse}, To={to_warehouse}")
+            except Exception as e:
+                logging.warning(f"Could not fetch warehouse data from SAP: {e}")
+
         # Create new transfer
         transfer = InventoryTransfer(
             transfer_request_number=transfer_request_number,

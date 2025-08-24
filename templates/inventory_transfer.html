@@ -294,10 +294,49 @@ async function validateTransferRequest(requestNumber) {
         const resultDiv = document.getElementById('transferValidationResult');
         
         if (data.valid) {
+            // Populate warehouse dropdowns with SAP data
+            const fromWarehouseSelect = document.getElementById('from_warehouse');
+            const toWarehouseSelect = document.getElementById('to_warehouse');
+            
+            if (data.from_warehouse) {
+                // Try to find matching option in dropdown
+                let foundFromOption = false;
+                for (let option of fromWarehouseSelect.options) {
+                    if (option.value === data.from_warehouse || option.text.includes(data.from_warehouse)) {
+                        option.selected = true;
+                        foundFromOption = true;
+                        break;
+                    }
+                }
+                // If not found in dropdown, add as new option
+                if (!foundFromOption) {
+                    const newOption = new Option(`${data.from_warehouse} - From SAP`, data.from_warehouse, true, true);
+                    fromWarehouseSelect.add(newOption);
+                }
+            }
+            
+            if (data.to_warehouse) {
+                // Try to find matching option in dropdown
+                let foundToOption = false;
+                for (let option of toWarehouseSelect.options) {
+                    if (option.value === data.to_warehouse || option.text.includes(data.to_warehouse)) {
+                        option.selected = true;
+                        foundToOption = true;
+                        break;
+                    }
+                }
+                // If not found in dropdown, add as new option
+                if (!foundToOption) {
+                    const newOption = new Option(`${data.to_warehouse} - From SAP`, data.to_warehouse, true, true);
+                    toWarehouseSelect.add(newOption);
+                }
+            }
+            
             resultDiv.innerHTML = `
                 <div class="alert alert-success">
                     <strong>Valid Transfer Request:</strong> ${requestNumber}
                     <br><small>Items: ${data.items_count || 'N/A'}</small>
+                    <br><small>From: ${data.from_warehouse || 'N/A'} → To: ${data.to_warehouse || 'N/A'}</small>
                 </div>
             `;
         } else {
