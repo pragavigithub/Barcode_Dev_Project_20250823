@@ -150,14 +150,8 @@ def create():
             flash('Transfer request number is required', 'error')
             return redirect(url_for('inventory_transfer.create'))
         
-        # Check if transfer already exists (by ANY user)
-        existing_transfer = InventoryTransfer.query.filter_by(
-            transfer_request_number=transfer_request_number
-        ).first()
-        
-        if existing_transfer:
-            flash(f'Transfer already exists for request {transfer_request_number} (created by {existing_transfer.user.username})', 'warning')
-            return redirect(url_for('inventory_transfer.detail', transfer_id=existing_transfer.id))
+        # Check if transfer already exists - but allow multiple transfers until SAP request is closed
+        # We'll validate SAP status first, then decide if new transfer creation is allowed
         
         # Validate SAP B1 transfer request and fetch warehouse data
         sap_data = None
@@ -178,6 +172,16 @@ def create():
                 else:
                     flash(f'Transfer request {transfer_request_number} has invalid status ({doc_status}). Only open requests (bost_Open) can be processed.', 'error')
                 return redirect(url_for('inventory_transfer.create'))
+            
+            # Now check for existing transfers - only prevent if this user already created one
+            existing_user_transfer = InventoryTransfer.query.filter_by(
+                transfer_request_number=transfer_request_number,
+                user_id=current_user.id
+            ).first()
+            
+            if existing_user_transfer:
+                flash(f'You already created a transfer for request {transfer_request_number}', 'warning')
+                return redirect(url_for('inventory_transfer.detail', transfer_id=existing_user_transfer.id))
             
             # Extract warehouse data from SAP
             from_warehouse = from_warehouse or sap_data.get('FromWarehouse')
@@ -212,12 +216,21 @@ def create():
                 open_lines = [line for line in lines if line.get('LineStatus', '') != 'bost_Close']
                 
                 for sap_line in open_lines:
-                    # Create transfer item from SAP line
+                    # Create transfer item from SAP line with correct field mapping
+                    item_code = sap_line.get('ItemCode', '')
+                    quantity = float(sap_line.get('Quantity', 0))
+                    
+                    # Debug logging for quantities
+                    logging.info(f"📦 Auto-populating item {item_code}: SAP Quantity={quantity}, LineStatus={sap_line.get('LineStatus', 'Unknown')}")
+                    
                     transfer_item = InventoryTransferItem(
-                        transfer_id=transfer.id,
-                        item_code=sap_line.get('ItemCode', ''),
+                        inventory_transfer_id=transfer.id,  # Fixed: use correct foreign key field
+                        item_code=item_code,
                         item_name=sap_line.get('ItemDescription', ''),
-                        quantity=float(sap_line.get('Quantity', 0)),
+                        quantity=quantity,
+                        requested_quantity=quantity,  # Set requested quantity
+                        transferred_quantity=0,  # Initially 0
+                        remaining_quantity=quantity,  # Initially same as requested
                         unit_of_measure=sap_line.get('UoMCode', sap_line.get('MeasureUnit', 'EA')),
                         from_warehouse_code=sap_line.get('FromWarehouseCode', from_warehouse),
                         to_warehouse_code=sap_line.get('WarehouseCode', to_warehouse),
