@@ -70,6 +70,12 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 - **QC Workflow Correction**: Disabled direct QC approval/rejection from serial transfer screen, redirected to QC Dashboard
 - **Database Migration**: Successfully migrated from MySQL to PostgreSQL for Replit cloud compatibility
 - **Enhanced Error Handling**: Added better error messages and user guidance for duplicate prevention
+- **2025-08-24**: SAP B1 Integration Fixes for Inventory Transfers
+- **Fixed Import Issues**: Resolved `sap_b1` import error by adding global SAP integration instance
+- **Enhanced DocNum Validation**: Added validation to check if SAP B1 transfer requests are in "bost_Open" status before processing
+- **Improved Warehouse Display**: Enhanced warehouse mapping in inventory transfer detail view with better visual indicators
+- **Fixed QC Approval SAP Posting**: Added proper SAP B1 integration for inventory transfer posting after QC approval
+- **Updated Inventory Transfer Creation**: Added comprehensive SAP B1 validation during transfer creation process
 
 ## User Preferences
 - None specified yet

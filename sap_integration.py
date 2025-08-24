@@ -3009,3 +3009,5 @@ class SAPIntegration:
                 logging.error(f"Error logging out from SAP B1: {str(e)}")
 
 
+# Create global SAP integration instance for backward compatibility
+sap_b1 = SAPIntegration()

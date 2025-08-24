@@ -101,7 +101,8 @@ def create():
         # Validate SAP B1 transfer request and fetch warehouse data
         sap_data = None
         try:
-            from sap_integration import sap_b1
+            from sap_integration import SAPIntegration
+            sap_b1 = SAPIntegration()
             sap_data = sap_b1.get_inventory_transfer_request(transfer_request_number)
             
             if not sap_data:
