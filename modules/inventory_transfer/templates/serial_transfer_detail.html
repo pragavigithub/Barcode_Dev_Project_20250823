@@ -545,7 +545,17 @@ function renderSerialsTable() {
         
         html += `<td><code style="color: ${serial.is_validated ? '#212529' : '#dc3545'}; font-weight: bold;">${serial.serial_number}</code></td>`;
         html += `<td><span class="badge ${serial.is_validated ? 'bg-success' : 'bg-danger'}">${serial.is_validated ? 'Validated ✓' : 'Invalid ❌'}</span></td>`;
-        html += `<td><small class="${serial.is_validated ? 'text-muted' : 'text-danger'}">${serial.validation_error || (serial.is_validated ? 'Valid in SAP B1' : 'Not validated')}</small></td>`;
+        
+        let validationText = '';
+        if (serial.is_validated) {
+            validationText = 'Valid in SAP B1';
+        } else if (serial.validation_error === 'Duplication') {
+            validationText = 'Duplication';
+        } else {
+            validationText = serial.validation_error || 'Not validated';
+        }
+        
+        html += `<td><small class="${serial.is_validated ? 'text-muted' : 'text-danger'}">${validationText}</small></td>`;
         
         // Show edit and delete buttons if transfer is still in draft
         if (currentTransferStatus === 'draft') {
