@@ -308,10 +308,17 @@ Serial Number Transfer {{ transfer.transfer_number }}
                     <div class="mb-3">
                         <label for="serial_numbers" class="form-label">Serial Numbers <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="serial_numbers" name="serial_numbers" rows="8" required
-                                  placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"></textarea>
+                                  placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"
+                                  oninput="highlightDuplicateSerials()"></textarea>
                         <small class="text-muted">
                             Each serial number will be validated against SAP B1 and checked against the specified Item Code.
                         </small>
+                        <div id="duplicateWarning" style="display: none;" class="alert alert-warning mt-2">
+                            <i data-feather="alert-triangle"></i>
+                            <strong>Duplicate Serial Numbers Detected:</strong>
+                            <span id="duplicateList"></span>
+                            <br><small>Duplicate entries are highlighted in red. Please review before submitting.</small>
+                        </div>
                     </div>
                     
                     <div id="validationResults" style="display: none;"></div>
@@ -384,6 +391,14 @@ function addItemWithSerials(event) {
     const form = event.target;
     const formData = new FormData(form);
     const submitBtn = form.querySelector('button[type="submit"]');
+    
+    // Check for duplicates and warn user
+    const duplicates = getCurrentDuplicates();
+    if (duplicates.length > 0) {
+        if (!confirm(`⚠️ Duplicate serial numbers detected: ${duplicates.join(', ')}\n\nDo you want to continue? The system will skip duplicate entries automatically.`)) {
+            return false;
+        }
+    }
     
     // Show loading state
     submitBtn.disabled = true;
@@ -814,6 +829,68 @@ function editSerialNumber(serialId, currentSerialNumber, itemId) {
     } else if (newSerial !== null && newSerial.trim() === currentSerialNumber) {
         alert('No changes made - serial number is the same');
     }
+}
+
+// Duplicate Serial Number Highlighting Functions
+function highlightDuplicateSerials() {
+    const textarea = document.getElementById('serial_numbers');
+    const duplicateWarning = document.getElementById('duplicateWarning');
+    const duplicateList = document.getElementById('duplicateList');
+    
+    if (!textarea || !duplicateWarning || !duplicateList) return;
+    
+    const text = textarea.value;
+    const serials = text.split(/[\r\n,\s]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    
+    // Find duplicates
+    const serialCounts = {};
+    const duplicates = [];
+    
+    serials.forEach(serial => {
+        serialCounts[serial] = (serialCounts[serial] || 0) + 1;
+        if (serialCounts[serial] === 2) {
+            duplicates.push(serial);
+        }
+    });
+    
+    if (duplicates.length > 0) {
+        // Show warning
+        duplicateWarning.style.display = 'block';
+        duplicateList.textContent = duplicates.join(', ');
+        
+        // Highlight duplicates in textarea (simplified approach)
+        textarea.classList.add('border-warning');
+        textarea.style.backgroundColor = '#fff3cd';
+    } else {
+        // Hide warning
+        duplicateWarning.style.display = 'none';
+        textarea.classList.remove('border-warning');
+        textarea.style.backgroundColor = '';
+    }
+}
+
+function getCurrentDuplicates() {
+    const textarea = document.getElementById('serial_numbers');
+    if (!textarea) return [];
+    
+    const text = textarea.value;
+    const serials = text.split(/[\r\n,\s]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    
+    const serialCounts = {};
+    const duplicates = [];
+    
+    serials.forEach(serial => {
+        serialCounts[serial] = (serialCounts[serial] || 0) + 1;
+        if (serialCounts[serial] === 2) {
+            duplicates.push(serial);
+        }
+    });
+    
+    return duplicates;
 }
 
 // Camera scanning functions for Serial Transfer

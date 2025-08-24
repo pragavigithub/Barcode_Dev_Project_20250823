@@ -2983,8 +2983,8 @@ class SAPIntegration:
         try:
             logging.info(f"🚀 Posting Inventory Transfer {transfer_document.id} to SAP B1...")
             
-            # Use the existing create_stock_transfer function
-            result = self.create_stock_transfer(transfer_document)
+            # Use the existing create_inventory_transfer function
+            result = self.create_inventory_transfer(transfer_document)
             
             if result.get('success'):
                 logging.info(f"✅ Inventory Transfer {transfer_document.id} posted successfully to SAP B1")

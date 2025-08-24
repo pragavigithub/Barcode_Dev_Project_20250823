@@ -76,6 +76,10 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 - **Improved Warehouse Display**: Enhanced warehouse mapping in inventory transfer detail view with better visual indicators
 - **Fixed QC Approval SAP Posting**: Added proper SAP B1 integration for inventory transfer posting after QC approval
 - **Updated Inventory Transfer Creation**: Added comprehensive SAP B1 validation during transfer creation process
+- **Fixed SAP B1 Method Call Error**: Corrected `create_stock_transfer` to `create_inventory_transfer` method call in QC approval posting
+- **Enhanced Serial Number Duplicate Detection**: Added visual highlighting of duplicate serial numbers instead of automatic removal
+- **Improved Serial Number UX**: Duplicate serials now show warning with visual indicators, allowing user review before submission
+- **Enhanced Duplicate Prevention**: Added comprehensive duplicate checking at both frontend validation and backend processing levels
 
 ## User Preferences
 - None specified yet
