@@ -2977,6 +2977,26 @@ class SAPIntegration:
             logging.error(error_msg)
             return {'success': False, 'error': error_msg}
 
+    def post_inventory_transfer_to_sap(self, transfer_document):
+        """Post inventory transfer to SAP B1 as Stock Transfer"""
+        try:
+            logging.info(f"🚀 Posting Inventory Transfer {transfer_document.id} to SAP B1...")
+            
+            # Use the existing create_stock_transfer function
+            result = self.create_stock_transfer(transfer_document)
+            
+            if result.get('success'):
+                logging.info(f"✅ Inventory Transfer {transfer_document.id} posted successfully to SAP B1")
+                return result
+            else:
+                logging.error(f"❌ Failed to post Inventory Transfer {transfer_document.id}: {result.get('error')}")
+                return result
+                
+        except Exception as e:
+            error_msg = f"Error posting inventory transfer to SAP B1: {str(e)}"
+            logging.error(error_msg)
+            return {'success': False, 'error': error_msg}
+
     def logout(self):
         """Logout from SAP B1"""
         if self.session_id:

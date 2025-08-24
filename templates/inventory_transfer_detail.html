@@ -48,21 +48,19 @@
                             <p><strong>SAP Document:</strong> {{ transfer.sap_document_number or 'Not assigned' }}</p>
                             <p><strong>Status:</strong> {{ transfer.status.title() }}</p>
                             <p><strong>From Warehouse:</strong> 
-                                {% if transfer.from_warehouse %}
-                                    {{ transfer.from_warehouse }}
-                                {% elif sap_transfer_data and sap_transfer_data.get('FromWarehouse') %}
-                                    {{ sap_transfer_data.get('FromWarehouse') }}
+                                {% set from_wh = transfer.from_warehouse or (sap_transfer_data.get('FromWarehouse') if sap_transfer_data else None) %}
+                                {% if from_wh %}
+                                    <span class="badge bg-info">{{ from_wh }}</span>
                                 {% else %}
-                                    Not specified
+                                    <span class="text-warning">Not specified</span>
                                 {% endif %}
                             </p>
                             <p><strong>To Warehouse:</strong> 
-                                {% if transfer.to_warehouse %}
-                                    {{ transfer.to_warehouse }}
-                                {% elif sap_transfer_data and sap_transfer_data.get('ToWarehouse') %}
-                                    {{ sap_transfer_data.get('ToWarehouse') }}
+                                {% set to_wh = transfer.to_warehouse or (sap_transfer_data.get('ToWarehouse') if sap_transfer_data else None) %}
+                                {% if to_wh %}
+                                    <span class="badge bg-success">{{ to_wh }}</span>
                                 {% else %}
-                                    Not specified
+                                    <span class="text-warning">Not specified</span>
                                 {% endif %}
                             </p>
                         </div>

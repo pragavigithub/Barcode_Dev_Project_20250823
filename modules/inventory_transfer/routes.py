@@ -98,17 +98,33 @@ def create():
             flash(f'Transfer already exists for request {transfer_request_number}', 'warning')
             return redirect(url_for('inventory_transfer.detail', transfer_id=existing_transfer.id))
         
-        # Fetch warehouse data from SAP B1 if not provided in form
-        if not from_warehouse or not to_warehouse:
-            try:
-                from sap_integration import sap_b1
-                sap_data = sap_b1.get_inventory_transfer_request(transfer_request_number)
-                if sap_data:
-                    from_warehouse = from_warehouse or sap_data.get('FromWarehouse')
-                    to_warehouse = to_warehouse or sap_data.get('ToWarehouse')
-                    logging.info(f"✅ Fetched warehouses from SAP: From={from_warehouse}, To={to_warehouse}")
-            except Exception as e:
-                logging.warning(f"Could not fetch warehouse data from SAP: {e}")
+        # Validate SAP B1 transfer request and fetch warehouse data
+        sap_data = None
+        try:
+            from sap_integration import sap_b1
+            sap_data = sap_b1.get_inventory_transfer_request(transfer_request_number)
+            
+            if not sap_data:
+                flash(f'Transfer request {transfer_request_number} not found in SAP B1', 'error')
+                return redirect(url_for('inventory_transfer.create'))
+            
+            # Check if transfer request is open (available for processing)
+            doc_status = sap_data.get('DocumentStatus') or sap_data.get('DocStatus', '')
+            if doc_status not in ['bost_Open', 'Open', '']:
+                flash(f'Transfer request {transfer_request_number} is not open (Status: {doc_status}). Only open requests can be processed.', 'error')
+                return redirect(url_for('inventory_transfer.create'))
+            
+            # Extract warehouse data from SAP
+            from_warehouse = from_warehouse or sap_data.get('FromWarehouse')
+            to_warehouse = to_warehouse or sap_data.get('ToWarehouse')
+            
+            logging.info(f"✅ SAP B1 validation passed - DocNum: {transfer_request_number}, Status: {doc_status}")
+            logging.info(f"✅ Warehouses from SAP: From={from_warehouse}, To={to_warehouse}")
+            
+        except Exception as e:
+            logging.warning(f"SAP B1 validation failed: {e}")
+            flash(f'Could not validate transfer request in SAP B1: {str(e)}', 'error')
+            return redirect(url_for('inventory_transfer.create'))
 
         # Create new transfer
         transfer = InventoryTransfer(
@@ -196,9 +212,27 @@ def qc_approve(transfer_id):
         transfer.qc_approved_at = datetime.utcnow()
         transfer.qc_notes = qc_notes
         
-        # Here you would integrate with SAP B1 to create Stock Transfer
-        # For now, we'll simulate success
-        transfer.sap_document_number = f"ST-{transfer_id}-{datetime.now().strftime('%Y%m%d')}"
+        # Post to SAP B1 as Stock Transfer
+        try:
+            from sap_integration import SAPIntegration
+            sap = SAPIntegration()
+            
+            logging.info(f"🚀 Posting Inventory Transfer {transfer_id} to SAP B1...")
+            sap_result = sap.post_inventory_transfer_to_sap(transfer)
+            
+            if sap_result.get('success'):
+                transfer.sap_document_number = sap_result.get('document_number')
+                transfer.status = 'posted'
+                logging.info(f"✅ Successfully posted to SAP B1: {transfer.sap_document_number}")
+            else:
+                # Keep as qc_approved but log the error
+                sap_error = sap_result.get('error', 'Unknown SAP error')
+                logging.error(f"❌ SAP B1 posting failed: {sap_error}")
+                transfer.sap_document_number = f"ERROR-{transfer_id}-{datetime.now().strftime('%Y%m%d')}"
+                
+        except Exception as e:
+            logging.error(f"❌ SAP B1 posting exception: {str(e)}")
+            transfer.sap_document_number = f"ERROR-{transfer_id}-{datetime.now().strftime('%Y%m%d')}"
         
         db.session.commit()
         

@@ -410,8 +410,62 @@ BACKUP_PATH=backups/
                     except Exception as e:
                         logger.warning(f"⚠️ Could not add column sales_order_lines.{col_name}: {e}")
 
+        # Check inventory_transfers table for SAP B1 integration enhancements
+        if self.table_exists('inventory_transfers'):
+            inventory_transfer_columns = [
+                ('transfer_request_number', 'VARCHAR(20) NOT NULL'),
+                ('sap_document_number', 'VARCHAR(20)'),
+                ('status', 'VARCHAR(20) DEFAULT "draft"'),
+                ('user_id', 'INT NOT NULL'),
+                ('qc_approver_id', 'INT'),
+                ('qc_approved_at', 'DATETIME'),
+                ('qc_notes', 'TEXT'),
+                ('from_warehouse', 'VARCHAR(20)'),
+                ('to_warehouse', 'VARCHAR(20)'),
+                ('created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+                ('updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
+            ]
+            
+            for col_name, col_def in inventory_transfer_columns:
+                if not self.column_exists('inventory_transfers', col_name):
+                    try:
+                        self.execute_query(f"ALTER TABLE inventory_transfers ADD COLUMN {col_name} {col_def}")
+                        logger.info(f"✅ Added missing column: inventory_transfers.{col_name}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not add column inventory_transfers.{col_name}: {e}")
+
+        # Check inventory_transfer_items table for warehouse mapping improvements
+        if self.table_exists('inventory_transfer_items'):
+            inventory_transfer_item_columns = [
+                ('inventory_transfer_id', 'INT NOT NULL'),
+                ('item_code', 'VARCHAR(50) NOT NULL'),
+                ('item_name', 'VARCHAR(200) NOT NULL'),
+                ('quantity', 'DECIMAL(15,3) NOT NULL'),
+                ('requested_quantity', 'DECIMAL(15,3) NOT NULL'),
+                ('transferred_quantity', 'DECIMAL(15,3) DEFAULT 0'),
+                ('remaining_quantity', 'DECIMAL(15,3) NOT NULL'),
+                ('unit_of_measure', 'VARCHAR(10) NOT NULL'),
+                ('from_bin', 'VARCHAR(20)'),
+                ('to_bin', 'VARCHAR(20)'),
+                ('from_bin_location', 'VARCHAR(50)'),
+                ('to_bin_location', 'VARCHAR(50)'),
+                ('batch_number', 'VARCHAR(50)'),
+                ('available_batches', 'TEXT'),
+                ('qc_status', 'VARCHAR(20) DEFAULT "pending"'),
+                ('qc_notes', 'TEXT'),
+                ('created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+            ]
+            
+            for col_name, col_def in inventory_transfer_item_columns:
+                if not self.column_exists('inventory_transfer_items', col_name):
+                    try:
+                        self.execute_query(f"ALTER TABLE inventory_transfer_items ADD COLUMN {col_name} {col_def}")
+                        logger.info(f"✅ Added missing column: inventory_transfer_items.{col_name}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not add column inventory_transfer_items.{col_name}: {e}")
+
         self.connection.commit()
-        logger.info("✅ Column migration completed - QR Code generation and Sales Order integration should work now!")
+        logger.info("✅ Column migration completed - QR Code generation, Sales Order integration, and SAP B1 inventory transfer enhancements updated!")
     
     def create_all_tables(self):
         """Create all WMS tables in correct order (dependencies first)"""
