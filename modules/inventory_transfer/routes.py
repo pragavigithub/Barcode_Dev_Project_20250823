@@ -5,7 +5,7 @@ All routes related to inventory transfers between warehouses/bins
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from app import db
-from models import InventoryTransfer, InventoryTransferItem, User
+from models import InventoryTransfer, InventoryTransferItem, User, SerialNumberTransfer, SerialNumberTransferItem, SerialNumberTransferSerial
 from sqlalchemy import or_
 import logging
 import random
@@ -487,8 +487,6 @@ def serial_create():
 @login_required
 def serial_detail(transfer_id):
     """Serial Number Transfer detail page"""
-    from models import SerialNumberTransfer, SerialNumberTransferItem, SerialNumberTransferSerial
-    
     transfer = SerialNumberTransfer.query.get_or_404(transfer_id)
     
     # Check permissions
