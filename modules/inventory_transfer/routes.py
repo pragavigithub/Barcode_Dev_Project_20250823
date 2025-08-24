@@ -853,15 +853,15 @@ def serial_add_item(transfer_id):
                             # Process sub-batch with individual error handling
                             for serial_number in sub_batch:
                                 try:
-                                    # **DUPLICATE PREVENTION** - Check if serial already exists for this transfer item
-                                    existing_serial = SerialNumberTransferSerial.query.filter_by(
-                                        transfer_item_id=transfer_item.id,
-                                        serial_number=serial_number
-                                    ).first()
-                                    
-                                    if existing_serial:
-                                        logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
-                                        continue
+                                    # **ALLOW DUPLICATES FOR USER REVIEW** - No duplicate checking in recovery mode
+                                    # existing_serial = SerialNumberTransferSerial.query.filter_by(
+                                    #     transfer_item_id=transfer_item.id,
+                                    #     serial_number=serial_number
+                                    # ).first()
+                                    # 
+                                    # if existing_serial:
+                                    #     logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
+                                    #     continue
                                     
                                     validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
                                     serial_record = SerialNumberTransferSerial(

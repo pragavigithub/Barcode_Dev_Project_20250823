@@ -157,6 +157,29 @@ with app.app_context():
     db.create_all()
     logging.info("Database tables created")
     
+    # Fix duplicate serial number constraint issue - drop unique constraint to allow duplicates
+    if db_type == "mysql":
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                # Check if the constraint exists and drop it
+                result = conn.execute(text("""
+                    SELECT CONSTRAINT_NAME 
+                    FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                    AND TABLE_NAME = 'serial_number_transfer_serials' 
+                    AND CONSTRAINT_NAME = 'unique_serial_per_item'
+                """))
+                
+                if result.fetchone():
+                    conn.execute(text("ALTER TABLE serial_number_transfer_serials DROP INDEX unique_serial_per_item"))
+                    conn.commit()
+                    logging.info("✅ Dropped unique_serial_per_item constraint to allow duplicate serial numbers")
+                else:
+                    logging.info("ℹ️ unique_serial_per_item constraint not found, skipping")
+        except Exception as e:
+            logging.warning(f"⚠️ Could not drop unique constraint: {e}")
+    
     # Create default data for PostgreSQL database
     try:
         from models_extensions import Branch
