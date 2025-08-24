@@ -726,6 +726,16 @@ def serial_add_item(transfer_id):
             
             for serial_number in batch:
                 try:
+                    # **DUPLICATE PREVENTION** - Check if serial already exists for this transfer item
+                    existing_serial = SerialNumberTransferSerial.query.filter_by(
+                        transfer_item_id=transfer_item.id,
+                        serial_number=serial_number
+                    ).first()
+                    
+                    if existing_serial:
+                        logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
+                        continue
+                    
                     # **ONE-BY-ONE SAP VALIDATION** to prevent timeouts for 1000+ items
                     validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
                     
@@ -754,16 +764,29 @@ def serial_add_item(transfer_id):
                             logging.debug(f"🕰️ SAP timeout prevention: Processed {current_item}/{len(serial_numbers)} items")
                     
                 except Exception as e:
+                    # Check if it's a duplicate error that we should skip
+                    if "Duplicate entry" in str(e) or "unique_serial_per_item" in str(e):
+                        logging.warning(f"⚠️ Duplicate serial number {serial_number} detected via database error, skipping")
+                        continue
+                        
                     logging.error(f"Error validating serial number {serial_number}: {str(e)}")
-                    # Add as unvalidated
-                    serial_record = SerialNumberTransferSerial(
+                    
+                    # Check for duplicates before adding even in error recovery
+                    existing_serial = SerialNumberTransferSerial.query.filter_by(
                         transfer_item_id=transfer_item.id,
-                        serial_number=serial_number,
-                        internal_serial_number=serial_number,
-                        is_validated=False,
-                        validation_error=str(e)
-                    )
-                    db.session.add(serial_record)
+                        serial_number=serial_number
+                    ).first()
+                    
+                    if not existing_serial:
+                        # Add as unvalidated
+                        serial_record = SerialNumberTransferSerial(
+                            transfer_item_id=transfer_item.id,
+                            serial_number=serial_number,
+                            internal_serial_number=serial_number,
+                            is_validated=False,
+                            validation_error=str(e)
+                        )
+                        db.session.add(serial_record)
             
             # ULTRA-ADVANCED BATCH PROCESSING WITH AI-LIKE ERROR RECOVERY AND PERFORMANCE OPTIMIZATION
             try:
@@ -828,6 +851,16 @@ def serial_add_item(transfer_id):
                             # Process sub-batch with individual error handling
                             for serial_number in sub_batch:
                                 try:
+                                    # **DUPLICATE PREVENTION** - Check if serial already exists for this transfer item
+                                    existing_serial = SerialNumberTransferSerial.query.filter_by(
+                                        transfer_item_id=transfer_item.id,
+                                        serial_number=serial_number
+                                    ).first()
+                                    
+                                    if existing_serial:
+                                        logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
+                                        continue
+                                    
                                     validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
                                     serial_record = SerialNumberTransferSerial(
                                         transfer_item_id=transfer_item.id,
@@ -841,16 +874,29 @@ def serial_add_item(transfer_id):
                                         validated_count += 1
                                     db.session.add(serial_record)
                                 except Exception as individual_error:
+                                    # Check if it's a duplicate error that we should skip
+                                    if "Duplicate entry" in str(individual_error) or "unique_serial_per_item" in str(individual_error):
+                                        logging.warning(f"⚠️ Duplicate serial number {serial_number} detected via database error, skipping")
+                                        continue
+                                        
                                     # GRACEFUL DEGRADATION - Add as unvalidated but continue processing
                                     logging.warning(f"⚠️ Individual item error for {serial_number}: {str(individual_error)}")
-                                    serial_record = SerialNumberTransferSerial(
+                                    
+                                    # Check for duplicates before adding even in error recovery
+                                    existing_serial = SerialNumberTransferSerial.query.filter_by(
                                         transfer_item_id=transfer_item.id,
-                                        serial_number=serial_number,
-                                        internal_serial_number=serial_number,
-                                        is_validated=False,
-                                        validation_error=f"Recovery processing error: {str(individual_error)}"
-                                    )
-                                    db.session.add(serial_record)
+                                        serial_number=serial_number
+                                    ).first()
+                                    
+                                    if not existing_serial:
+                                        serial_record = SerialNumberTransferSerial(
+                                            transfer_item_id=transfer_item.id,
+                                            serial_number=serial_number,
+                                            internal_serial_number=serial_number,
+                                            is_validated=False,
+                                            validation_error=f"Recovery processing error: {str(individual_error)}"
+                                        )
+                                        db.session.add(serial_record)
                             
                             # Flush sub-batch
                             db.session.flush()
