@@ -203,32 +203,6 @@
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="from_warehouse" class="form-label">From Warehouse</label>
-                                <select class="form-select" id="from_warehouse" name="from_warehouse" required>
-                                    <option value="">Select From Warehouse</option>
-                                    <option value="01">01 - Main Warehouse</option>
-                                    <option value="02">02 - Secondary Warehouse</option>
-                                    <option value="03">03 - Finished Goods</option>
-                                    <option value="04">04 - Raw Materials</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="to_warehouse" class="form-label">To Warehouse</label>
-                                <select class="form-select" id="to_warehouse" name="to_warehouse" required>
-                                    <option value="">Select To Warehouse</option>
-                                    <option value="01">01 - Main Warehouse</option>
-                                    <option value="02">02 - Secondary Warehouse</option>
-                                    <option value="03">03 - Finished Goods</option>
-                                    <option value="04">04 - Raw Materials</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
                     
                     <div class="scanner-container" id="transferScannerContainer" style="display: none;">
                         <video id="transferScanVideo" class="scanner-video" autoplay></video>
@@ -294,44 +268,6 @@ async function validateTransferRequest(requestNumber) {
         const resultDiv = document.getElementById('transferValidationResult');
         
         if (data.valid) {
-            // Populate warehouse dropdowns with SAP data
-            const fromWarehouseSelect = document.getElementById('from_warehouse');
-            const toWarehouseSelect = document.getElementById('to_warehouse');
-            
-            if (data.from_warehouse) {
-                // Try to find matching option in dropdown
-                let foundFromOption = false;
-                for (let option of fromWarehouseSelect.options) {
-                    if (option.value === data.from_warehouse || option.text.includes(data.from_warehouse)) {
-                        option.selected = true;
-                        foundFromOption = true;
-                        break;
-                    }
-                }
-                // If not found in dropdown, add as new option
-                if (!foundFromOption) {
-                    const newOption = new Option(`${data.from_warehouse} - From SAP`, data.from_warehouse, true, true);
-                    fromWarehouseSelect.add(newOption);
-                }
-            }
-            
-            if (data.to_warehouse) {
-                // Try to find matching option in dropdown
-                let foundToOption = false;
-                for (let option of toWarehouseSelect.options) {
-                    if (option.value === data.to_warehouse || option.text.includes(data.to_warehouse)) {
-                        option.selected = true;
-                        foundToOption = true;
-                        break;
-                    }
-                }
-                // If not found in dropdown, add as new option
-                if (!foundToOption) {
-                    const newOption = new Option(`${data.to_warehouse} - From SAP`, data.to_warehouse, true, true);
-                    toWarehouseSelect.add(newOption);
-                }
-            }
-            
             resultDiv.innerHTML = `
                 <div class="alert alert-success">
                     <strong>Valid Transfer Request:</strong> ${requestNumber}
