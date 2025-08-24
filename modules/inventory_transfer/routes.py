@@ -150,14 +150,13 @@ def create():
             flash('Transfer request number is required', 'error')
             return redirect(url_for('inventory_transfer.create'))
         
-        # Check if transfer already exists
+        # Check if transfer already exists (by ANY user)
         existing_transfer = InventoryTransfer.query.filter_by(
-            transfer_request_number=transfer_request_number, 
-            user_id=current_user.id
+            transfer_request_number=transfer_request_number
         ).first()
         
         if existing_transfer:
-            flash(f'Transfer already exists for request {transfer_request_number}', 'warning')
+            flash(f'Transfer already exists for request {transfer_request_number} (created by {existing_transfer.user.username})', 'warning')
             return redirect(url_for('inventory_transfer.detail', transfer_id=existing_transfer.id))
         
         # Validate SAP B1 transfer request and fetch warehouse data
@@ -173,8 +172,11 @@ def create():
             
             # Check if transfer request is open (available for processing)
             doc_status = sap_data.get('DocumentStatus') or sap_data.get('DocStatus', '')
-            if doc_status not in ['bost_Open', 'Open', '']:
-                flash(f'Transfer request {transfer_request_number} is not open (Status: {doc_status}). Only open requests can be processed.', 'error')
+            if doc_status != 'bost_Open':
+                if doc_status == 'bost_Close':
+                    flash(f'Transfer request {transfer_request_number} is closed and cannot be processed.', 'error')
+                else:
+                    flash(f'Transfer request {transfer_request_number} has invalid status ({doc_status}). Only open requests (bost_Open) can be processed.', 'error')
                 return redirect(url_for('inventory_transfer.create'))
             
             # Extract warehouse data from SAP
