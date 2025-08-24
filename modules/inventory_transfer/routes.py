@@ -63,11 +63,20 @@ def detail(transfer_id):
         logging.info(f"🔍 Fetching SAP data for transfer {transfer.transfer_request_number}")
         sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
         
+        logging.info(f"🔍 SAP response type: {type(sap_transfer_data)}")
+        if sap_transfer_data:
+            logging.info(f"🔍 SAP response keys: {sap_transfer_data.keys()}")
+        
         if sap_transfer_data and 'StockTransferLines' in sap_transfer_data:
+            lines = sap_transfer_data['StockTransferLines']
+            logging.info(f"🔍 Found {len(lines)} stock transfer lines")
+            
             # Calculate actual remaining quantities based on WMS transfers
-            for sap_line in sap_transfer_data['StockTransferLines']:
+            for sap_line in lines:
                 item_code = sap_line.get('ItemCode')
                 requested_qty = float(sap_line.get('Quantity', 0))
+                
+                logging.info(f"🔍 Processing line: {item_code} - Qty: {requested_qty}")
                 
                 # Calculate total transferred quantity for this item from WMS database
                 transferred_qty = 0
@@ -78,6 +87,7 @@ def detail(transfer_id):
                 
                 if wms_item:
                     transferred_qty = float(wms_item.quantity or 0)
+                    logging.info(f"🔍 WMS item found - transferred: {transferred_qty}")
                 
                 # Calculate remaining quantity
                 remaining_qty = max(0, requested_qty - transferred_qty)
@@ -98,6 +108,7 @@ def detail(transfer_id):
                     'LineStatus': actual_line_status  # Use calculated status
                 }
                 available_items.append(enhanced_item)
+                logging.info(f"🔍 Added item to available_items: {item_code}")
                 
             logging.info(f"✅ Calculated remaining quantities for {len(available_items)} available items")
             
@@ -107,10 +118,12 @@ def detail(transfer_id):
                 to_wh = sap_transfer_data.get('ToWarehouse')
                 logging.info(f"✅ Fetched SAP warehouse data for display: From={from_wh}, To={to_wh}")
         else:
-            logging.warning("❌ SAP returned no transfer data or lines")
+            logging.warning(f"❌ SAP returned no transfer data or lines. Data: {sap_transfer_data}")
             
     except Exception as e:
         logging.error(f"❌ Could not fetch SAP data: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
     
     if not transfer.from_warehouse or not transfer.to_warehouse:
         logging.info(f"📋 Using database warehouse data: From={transfer.from_warehouse}, To={transfer.to_warehouse}")

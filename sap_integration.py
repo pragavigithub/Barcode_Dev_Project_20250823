@@ -1,8 +1,8 @@
 import requests
 import json
 import logging
+import os
 from datetime import datetime
-from app import app
 import urllib.parse
 import urllib3
 
@@ -12,10 +12,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class SAPIntegration:
 
     def __init__(self):
-        self.base_url = app.config['SAP_B1_SERVER']
-        self.username = app.config['SAP_B1_USERNAME']
-        self.password = app.config['SAP_B1_PASSWORD']
-        self.company_db = app.config['SAP_B1_COMPANY_DB']
+        # Use environment variables directly to avoid circular import
+        self.base_url = os.environ.get('SAP_B1_SERVER', '')
+        self.username = os.environ.get('SAP_B1_USERNAME', '')
+        self.password = os.environ.get('SAP_B1_PASSWORD', '')
+        self.company_db = os.environ.get('SAP_B1_COMPANY_DB', '')
         self.session_id = None
         self.session = requests.Session()
         self.session.verify = False  # For development, in production use proper SSL
@@ -1615,8 +1616,8 @@ class SAPIntegration:
                     if not existing:
                         # Insert new warehouse as branch - use compatible SQL
                         import os
-                        from app import app
-                        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+                        # Removed circular import
+                        db_uri = os.environ.get('DATABASE_URL', '')
 
                         if 'postgresql' in db_uri.lower(
                         ) or 'mysql' in db_uri.lower():
@@ -1640,8 +1641,8 @@ class SAPIntegration:
                     else:
                         # Update existing warehouse - use compatible SQL
                         import os
-                        from app import app
-                        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+                        # Removed circular import
+                        db_uri = os.environ.get('DATABASE_URL', '')
 
                         if 'postgresql' in db_uri.lower(
                         ) or 'mysql' in db_uri.lower():
@@ -1710,7 +1711,7 @@ class SAPIntegration:
                 from app import db, app
                 import os
 
-                db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+                db_uri = os.environ.get('DATABASE_URL', '')
 
                 if 'postgresql' in db_uri.lower():
                     create_table_sql = """
@@ -1833,7 +1834,7 @@ class SAPIntegration:
                 from app import db, app
 
                 # Create business_partners table if not exists - use database-specific syntax
-                db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+                db_uri = os.environ.get('DATABASE_URL', '')
 
                 if 'postgresql' in db_uri.lower():
                     create_table_sql = """
