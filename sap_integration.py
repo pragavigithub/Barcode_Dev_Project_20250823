@@ -75,9 +75,24 @@ class SAPIntegration:
             logging.warning(
                 "SAP B1 not available, returning mock transfer request for validation"
             )
-            # Return mock data for offline mode to allow testing
+            # Return mock data for offline mode to allow testing based on your real data
             return {
-
+                'DocNum': doc_num,
+                'FromWarehouse': '7000-FG',
+                'ToWarehouse': '7000-QFG', 
+                'DocumentStatus': 'bost_Open',
+                'DocStatus': 'bost_Open',
+                'StockTransferLines': [
+                    {
+                        'LineNum': 0,
+                        'ItemCode': 'MOCK-ITEM-001',
+                        'ItemDescription': 'Mock Item for Testing',
+                        'Quantity': 10.0,
+                        'FromWarehouseCode': '7000-FG',
+                        'WarehouseCode': '7000-QFG',
+                        'LineStatus': 'bost_Open'
+                    }
+                ]
             }
 
         try:

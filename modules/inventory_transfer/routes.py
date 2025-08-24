@@ -56,11 +56,18 @@ def detail(transfer_id):
     if not transfer.from_warehouse or not transfer.to_warehouse:
         try:
             from sap_integration import sap_b1
+            logging.info(f"🔍 Fetching SAP data for transfer {transfer.transfer_request_number} (DB warehouses: From={transfer.from_warehouse}, To={transfer.to_warehouse})")
             sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
             if sap_transfer_data:
-                logging.info(f"✅ Fetched SAP warehouse data for display: From={sap_transfer_data.get('FromWarehouse')}, To={sap_transfer_data.get('ToWarehouse')}")
+                from_wh = sap_transfer_data.get('FromWarehouse')
+                to_wh = sap_transfer_data.get('ToWarehouse')
+                logging.info(f"✅ Fetched SAP warehouse data for display: From={from_wh}, To={to_wh}")
+            else:
+                logging.warning("❌ SAP returned None/empty data")
         except Exception as e:
-            logging.warning(f"Could not fetch SAP data for display: {e}")
+            logging.error(f"❌ Could not fetch SAP data for display: {e}")
+    else:
+        logging.info(f"📋 Using database warehouse data: From={transfer.from_warehouse}, To={transfer.to_warehouse}")
     
     return render_template('inventory_transfer_detail.html', transfer=transfer, sap_transfer_data=sap_transfer_data)
 
