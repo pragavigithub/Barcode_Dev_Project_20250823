@@ -203,6 +203,33 @@
                         </div>
                     </div>
                     
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="from_warehouse" class="form-label">From Warehouse</label>
+                                <select class="form-select" id="from_warehouse" name="from_warehouse" required>
+                                    <option value="">Select From Warehouse</option>
+                                    <option value="01">01 - Main Warehouse</option>
+                                    <option value="02">02 - Secondary Warehouse</option>
+                                    <option value="03">03 - Finished Goods</option>
+                                    <option value="04">04 - Raw Materials</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="to_warehouse" class="form-label">To Warehouse</label>
+                                <select class="form-select" id="to_warehouse" name="to_warehouse" required>
+                                    <option value="">Select To Warehouse</option>
+                                    <option value="01">01 - Main Warehouse</option>
+                                    <option value="02">02 - Secondary Warehouse</option>
+                                    <option value="03">03 - Finished Goods</option>
+                                    <option value="04">04 - Raw Materials</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="scanner-container" id="transferScannerContainer" style="display: none;">
                         <video id="transferScanVideo" class="scanner-video" autoplay></video>
                         <div class="scanner-overlay"></div>
