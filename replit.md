@@ -80,6 +80,9 @@ A Flask-based warehouse management system with SAP integration for barcode scann
 - **Enhanced Serial Number Duplicate Detection**: Added visual highlighting of duplicate serial numbers instead of automatic removal
 - **Improved Serial Number UX**: Duplicate serials now show warning with visual indicators, allowing user review before submission
 - **Enhanced Duplicate Prevention**: Added comprehensive duplicate checking at both frontend validation and backend processing levels
+- **Enhanced Duplicate Management**: Modified system to allow duplicate serial numbers to be added for individual user review and deletion
+- **Removed Unique Constraint**: Temporarily removed database unique constraint to enable user management of duplicate serial numbers
+- **Improved User Control**: Users can now see all duplicate entries in serial numbers modal and selectively delete unwanted duplicates
 
 ## User Preferences
 - None specified yet

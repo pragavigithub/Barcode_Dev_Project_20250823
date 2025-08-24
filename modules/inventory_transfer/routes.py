@@ -726,15 +726,16 @@ def serial_add_item(transfer_id):
             
             for serial_number in batch:
                 try:
-                    # **DUPLICATE PREVENTION** - Check if serial already exists for this transfer item
-                    existing_serial = SerialNumberTransferSerial.query.filter_by(
-                        transfer_item_id=transfer_item.id,
-                        serial_number=serial_number
-                    ).first()
-                    
-                    if existing_serial:
-                        logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
-                        continue
+                    # **DUPLICATE DETECTION FOR USER REVIEW** - Allow duplicates to be added for user management
+                    # Note: Duplicates are now allowed and will be shown in the UI for user selection and deletion
+                    # existing_serial = SerialNumberTransferSerial.query.filter_by(
+                    #     transfer_item_id=transfer_item.id,
+                    #     serial_number=serial_number
+                    # ).first()
+                    # 
+                    # if existing_serial:
+                    #     logging.warning(f"⚠️ Duplicate serial number {serial_number} already exists for transfer item {transfer_item.id}, skipping")
+                    #     continue
                     
                     # **ONE-BY-ONE SAP VALIDATION** to prevent timeouts for 1000+ items
                     validation_result = validate_series_with_warehouse_sap(serial_number, item_code, transfer.from_warehouse)
@@ -764,20 +765,21 @@ def serial_add_item(transfer_id):
                             logging.debug(f"🕰️ SAP timeout prevention: Processed {current_item}/{len(serial_numbers)} items")
                     
                 except Exception as e:
-                    # Check if it's a duplicate error that we should skip
-                    if "Duplicate entry" in str(e) or "unique_serial_per_item" in str(e):
-                        logging.warning(f"⚠️ Duplicate serial number {serial_number} detected via database error, skipping")
-                        continue
+                    # Note: Duplicate database errors should no longer occur since unique constraint removed
+                    # if "Duplicate entry" in str(e) or "unique_serial_per_item" in str(e):
+                    #     logging.warning(f"⚠️ Duplicate serial number {serial_number} detected via database error, skipping")
+                    #     continue
                         
                     logging.error(f"Error validating serial number {serial_number}: {str(e)}")
                     
-                    # Check for duplicates before adding even in error recovery
-                    existing_serial = SerialNumberTransferSerial.query.filter_by(
-                        transfer_item_id=transfer_item.id,
-                        serial_number=serial_number
-                    ).first()
-                    
-                    if not existing_serial:
+                    # Note: Duplicate checking removed to allow user management of duplicates
+                    # existing_serial = SerialNumberTransferSerial.query.filter_by(
+                    #     transfer_item_id=transfer_item.id,
+                    #     serial_number=serial_number
+                    # ).first()
+                    # 
+                    # if not existing_serial:
+                    if True:  # Always add, even duplicates
                         # Add as unvalidated
                         serial_record = SerialNumberTransferSerial(
                             transfer_item_id=transfer_item.id,

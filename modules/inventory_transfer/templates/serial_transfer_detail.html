@@ -395,7 +395,7 @@ function addItemWithSerials(event) {
     // Check for duplicates and warn user
     const duplicates = getCurrentDuplicates();
     if (duplicates.length > 0) {
-        if (!confirm(`⚠️ Duplicate serial numbers detected: ${duplicates.join(', ')}\n\nDo you want to continue? The system will skip duplicate entries automatically.`)) {
+        if (!confirm(`⚠️ Duplicate serial numbers detected: ${duplicates.join(', ')}\n\nDo you want to continue? Duplicates will be added and you can review them individually in the serial numbers list.`)) {
             return false;
         }
     }

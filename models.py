@@ -716,5 +716,6 @@ class SerialNumberTransferSerial(db.Model):
     admission_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Ensure unique serial numbers per item
-    __table_args__ = (db.UniqueConstraint('transfer_item_id', 'serial_number', name='unique_serial_per_item'),)
+    # Note: Unique constraint removed to allow duplicate serial numbers for user review
+    # Users can now add duplicates and manually delete unwanted entries from the UI
+    # __table_args__ = (db.UniqueConstraint('transfer_item_id', 'serial_number', name='unique_serial_per_item'),)
