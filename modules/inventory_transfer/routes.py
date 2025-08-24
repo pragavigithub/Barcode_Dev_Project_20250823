@@ -201,11 +201,44 @@ def create():
         db.session.add(transfer)
         db.session.commit()
         
+        # Auto-populate items from SAP transfer request if available
+        auto_populate = request.form.get('auto_populate_items') == 'on'
+        if auto_populate and sap_data and 'StockTransferLines' in sap_data:
+            try:
+                lines = sap_data['StockTransferLines']
+                # Only add open lines (not closed)
+                open_lines = [line for line in lines if line.get('LineStatus', '') != 'bost_Close']
+                
+                for sap_line in open_lines:
+                    # Create transfer item from SAP line
+                    transfer_item = InventoryTransferItem(
+                        transfer_id=transfer.id,
+                        item_code=sap_line.get('ItemCode', ''),
+                        item_name=sap_line.get('ItemDescription', ''),
+                        quantity=float(sap_line.get('Quantity', 0)),
+                        unit_of_measure=sap_line.get('UoMCode', sap_line.get('MeasureUnit', 'EA')),
+                        from_warehouse_code=sap_line.get('FromWarehouseCode', from_warehouse),
+                        to_warehouse_code=sap_line.get('WarehouseCode', to_warehouse),
+                        from_bin='',  # Will be filled later
+                        to_bin='',    # Will be filled later  
+                        batch_number='',  # Will be filled later
+                        qc_status='pending'
+                    )
+                    db.session.add(transfer_item)
+                
+                db.session.commit()
+                logging.info(f"✅ Auto-populated {len(open_lines)} items from SAP transfer request {transfer_request_number}")
+                flash(f'Inventory Transfer created with {len(open_lines)} auto-populated items from request {transfer_request_number}', 'success')
+            except Exception as e:
+                logging.error(f"Error auto-populating items: {e}")
+                flash(f'Transfer created but could not auto-populate items: {str(e)}', 'warning')
+        else:
+            flash(f'Inventory Transfer created for request {transfer_request_number}', 'success')
+        
         # Log status change
         log_status_change(transfer.id, None, 'draft', current_user.id, 'Transfer created')
         
         logging.info(f"✅ Inventory Transfer created for request {transfer_request_number} by user {current_user.username}")
-        flash(f'Inventory Transfer created for request {transfer_request_number}', 'success')
         return redirect(url_for('inventory_transfer.detail', transfer_id=transfer.id))
     
     return render_template('inventory_transfer.html')

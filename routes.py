@@ -1340,9 +1340,9 @@ def qc_approve_transfer(transfer_id):
         for item in transfer.items:
             item.qc_status = 'approved'
             
-        # Submit to SAP B1
+        # Submit to SAP B1 using the correct method
         sap = SAPIntegration()
-        result = sap.create_inventory_transfer(transfer)
+        result = sap.post_inventory_transfer_to_sap(transfer)
         
         if result.get('success'):
             # Update transfer status and SAP document number
