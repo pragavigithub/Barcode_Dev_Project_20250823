@@ -81,7 +81,7 @@ def detail(transfer_id):
                 # Calculate total transferred quantity for this item from WMS database
                 transferred_qty = 0
                 wms_item = InventoryTransferItem.query.filter_by(
-                    transfer_id=transfer.id,
+                    inventory_transfer_id=transfer.id,
                     item_code=item_code
                 ).first()
                 
@@ -308,32 +308,29 @@ def qc_approve(transfer_id):
         transfer.qc_approved_at = datetime.utcnow()
         transfer.qc_notes = qc_notes
         
-        # Post to SAP B1 as Stock Transfer
-        try:
-            from sap_integration import SAPIntegration
-            sap = SAPIntegration()
-            
-            logging.info(f"🚀 Posting Inventory Transfer {transfer_id} to SAP B1...")
-            sap_result = sap.post_inventory_transfer_to_sap(transfer)
-            
-            if sap_result.get('success'):
-                transfer.sap_document_number = sap_result.get('document_number')
-                transfer.status = 'posted'
-                logging.info(f"✅ Successfully posted to SAP B1: {transfer.sap_document_number}")
-            else:
-                # Keep as qc_approved but log the error
-                sap_error = sap_result.get('error', 'Unknown SAP error')
-                logging.error(f"❌ SAP B1 posting failed: {sap_error}")
-                transfer.sap_document_number = f"ERROR-{transfer_id}-{datetime.now().strftime('%Y%m%d')}"
-                
-        except Exception as e:
-            logging.error(f"❌ SAP B1 posting exception: {str(e)}")
-            transfer.sap_document_number = f"ERROR-{transfer_id}-{datetime.now().strftime('%Y%m%d')}"
+        # Post to SAP B1 as Stock Transfer - MUST succeed for approval
+        from sap_integration import SAPIntegration
+        sap = SAPIntegration()
+        
+        logging.info(f"🚀 Posting Inventory Transfer {transfer_id} to SAP B1...")
+        sap_result = sap.post_inventory_transfer_to_sap(transfer)
+        
+        if not sap_result.get('success'):
+            # Rollback approval if SAP posting fails
+            db.session.rollback()
+            sap_error = sap_result.get('error', 'Unknown SAP error')
+            logging.error(f"❌ SAP B1 posting failed: {sap_error}")
+            return jsonify({'success': False, 'error': f'SAP B1 posting failed: {sap_error}'}), 500
+        
+        # SAP posting succeeded - update with document number
+        transfer.sap_document_number = sap_result.get('document_number')
+        transfer.status = 'posted'
+        logging.info(f"✅ Successfully posted to SAP B1: {transfer.sap_document_number}")
         
         db.session.commit()
         
         # Log status change
-        log_status_change(transfer_id, old_status, 'qc_approved', current_user.id, f'Transfer QC approved and posted to SAP B1 as {transfer.sap_document_number}')
+        log_status_change(transfer_id, old_status, 'posted', current_user.id, f'Transfer QC approved and posted to SAP B1 as {transfer.sap_document_number}')
         
         logging.info(f"✅ Inventory Transfer {transfer_id} QC approved and posted to SAP B1")
         return jsonify({
