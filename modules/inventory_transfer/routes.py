@@ -173,15 +173,8 @@ def create():
                     flash(f'Transfer request {transfer_request_number} has invalid status ({doc_status}). Only open requests (bost_Open) can be processed.', 'error')
                 return redirect(url_for('inventory_transfer.create'))
             
-            # Now check for existing transfers - only prevent if this user already created one
-            existing_user_transfer = InventoryTransfer.query.filter_by(
-                transfer_request_number=transfer_request_number,
-                user_id=current_user.id
-            ).first()
-            
-            if existing_user_transfer:
-                flash(f'You already created a transfer for request {transfer_request_number}', 'warning')
-                return redirect(url_for('inventory_transfer.detail', transfer_id=existing_user_transfer.id))
+            # Allow multiple transfers to be created until SAP document status becomes "bost_Close"
+            # No duplicate checking - multiple users can create transfers for the same request
             
             # Extract warehouse data from SAP
             from_warehouse = from_warehouse or sap_data.get('FromWarehouse')
