@@ -51,26 +51,74 @@ def detail(transfer_id):
         flash('Access denied - You can only view your own transfers', 'error')
         return redirect(url_for('inventory_transfer.index'))
     
-    # Fetch SAP data for warehouse display if database fields are empty
+    # Fetch SAP data for warehouse display and available items calculation
     sap_transfer_data = None
-    if not transfer.from_warehouse or not transfer.to_warehouse:
-        try:
-            from sap_integration import SAPIntegration
-            sap_b1 = SAPIntegration()
-            logging.info(f"🔍 Fetching SAP data for transfer {transfer.transfer_request_number} (DB warehouses: From={transfer.from_warehouse}, To={transfer.to_warehouse})")
-            sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
-            if sap_transfer_data:
+    available_items = []
+    
+    try:
+        from sap_integration import SAPIntegration
+        sap_b1 = SAPIntegration()
+        
+        # Always fetch SAP data to get available items (regardless of warehouse fields)
+        logging.info(f"🔍 Fetching SAP data for transfer {transfer.transfer_request_number}")
+        sap_transfer_data = sap_b1.get_inventory_transfer_request(transfer.transfer_request_number)
+        
+        if sap_transfer_data and 'StockTransferLines' in sap_transfer_data:
+            # Calculate actual remaining quantities based on WMS transfers
+            for sap_line in sap_transfer_data['StockTransferLines']:
+                item_code = sap_line.get('ItemCode')
+                requested_qty = float(sap_line.get('Quantity', 0))
+                
+                # Calculate total transferred quantity for this item from WMS database
+                transferred_qty = 0
+                wms_item = InventoryTransferItem.query.filter_by(
+                    transfer_id=transfer.id,
+                    item_code=item_code
+                ).first()
+                
+                if wms_item:
+                    transferred_qty = float(wms_item.quantity or 0)
+                
+                # Calculate remaining quantity
+                remaining_qty = max(0, requested_qty - transferred_qty)
+                
+                # Determine actual line status based on remaining quantity
+                actual_line_status = 'bost_Close' if remaining_qty <= 0 else 'bost_Open'
+                
+                # Create enhanced item data with calculated values
+                enhanced_item = {
+                    'ItemCode': item_code,
+                    'ItemDescription': sap_line.get('ItemDescription', ''),
+                    'Quantity': requested_qty,
+                    'TransferredQuantity': transferred_qty,
+                    'RemainingQuantity': remaining_qty,
+                    'UnitOfMeasure': sap_line.get('UoMCode', sap_line.get('MeasureUnit', 'EA')),
+                    'FromWarehouseCode': sap_line.get('FromWarehouseCode'),
+                    'ToWarehouseCode': sap_line.get('WarehouseCode'),
+                    'LineStatus': actual_line_status  # Use calculated status
+                }
+                available_items.append(enhanced_item)
+                
+            logging.info(f"✅ Calculated remaining quantities for {len(available_items)} available items")
+            
+            # Update warehouse data if missing from database
+            if not transfer.from_warehouse or not transfer.to_warehouse:
                 from_wh = sap_transfer_data.get('FromWarehouse')
                 to_wh = sap_transfer_data.get('ToWarehouse')
                 logging.info(f"✅ Fetched SAP warehouse data for display: From={from_wh}, To={to_wh}")
-            else:
-                logging.warning("❌ SAP returned None/empty data")
-        except Exception as e:
-            logging.error(f"❌ Could not fetch SAP data for display: {e}")
-    else:
+        else:
+            logging.warning("❌ SAP returned no transfer data or lines")
+            
+    except Exception as e:
+        logging.error(f"❌ Could not fetch SAP data: {e}")
+    
+    if not transfer.from_warehouse or not transfer.to_warehouse:
         logging.info(f"📋 Using database warehouse data: From={transfer.from_warehouse}, To={transfer.to_warehouse}")
     
-    return render_template('inventory_transfer_detail.html', transfer=transfer, sap_transfer_data=sap_transfer_data)
+    return render_template('inventory_transfer_detail.html', 
+                         transfer=transfer, 
+                         sap_transfer_data=sap_transfer_data,
+                         available_items=available_items)
 
 @transfer_bp.route('/create', methods=['GET', 'POST'])
 @login_required
