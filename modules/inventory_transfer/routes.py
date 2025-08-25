@@ -729,6 +729,7 @@ def serial_add_item(transfer_id):
             serial_transfer_id=transfer_id,
             item_code=item_code,
             item_name=item_name,
+            quantity=expected_quantity,  # Store the expected quantity
             from_warehouse_code=transfer.from_warehouse,
             to_warehouse_code=transfer.to_warehouse
         )
@@ -1072,17 +1073,40 @@ def serial_submit(transfer_id):
         if not transfer.items:
             return jsonify({'success': False, 'error': 'Cannot submit transfer without items'}), 400
         
-        # Check if all serial numbers are validated
+        # Check quantity matching and validation
         unvalidated_count = 0
+        quantity_mismatches = []
+        
         for item in transfer.items:
+            validated_count = 0
             for serial in item.serial_numbers:
                 if not serial.is_validated:
                     unvalidated_count += 1
+                else:
+                    validated_count += 1
+            
+            # **STRICT QUANTITY MATCHING VALIDATION**
+            if validated_count != item.quantity:
+                quantity_mismatches.append({
+                    'item_code': item.item_code,
+                    'expected': item.quantity,
+                    'validated': validated_count
+                })
         
         if unvalidated_count > 0:
             return jsonify({
                 'success': False, 
                 'error': f'{unvalidated_count} serial numbers are not validated. Please validate all serial numbers before submitting.'
+            }), 400
+        
+        if quantity_mismatches:
+            mismatch_details = []
+            for mismatch in quantity_mismatches:
+                mismatch_details.append(f"{mismatch['item_code']}: expected {mismatch['expected']}, got {mismatch['validated']}")
+            
+            return jsonify({
+                'success': False, 
+                'error': f'Quantity mismatches found! Each item must have exactly matching expected quantity and valid serial numbers. Mismatches: {"; ".join(mismatch_details)}'
             }), 400
         
         # Update status

@@ -690,6 +690,7 @@ class SerialNumberTransferItem(db.Model):
     serial_transfer_id = db.Column(db.Integer, db.ForeignKey('serial_number_transfers.id'), nullable=False)
     item_code = db.Column(db.String(50), nullable=False)
     item_name = db.Column(db.String(200))
+    quantity = db.Column(db.Integer, nullable=False)  # Expected quantity for this item
     unit_of_measure = db.Column(db.String(10), default='EA')
     from_warehouse_code = db.Column(db.String(10), nullable=False)
     to_warehouse_code = db.Column(db.String(10), nullable=False)

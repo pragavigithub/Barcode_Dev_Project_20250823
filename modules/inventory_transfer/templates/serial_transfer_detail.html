@@ -166,6 +166,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <tr>
                                     <th>Item Code</th>
                                     <th>Description</th>
+                                    <th>Expected Qty</th>
                                     <th>Serial Numbers</th>
                                     <th>Validated</th>
                                     <th>From → To</th>
@@ -178,6 +179,9 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                     <td><strong>{{ item.item_code }}</strong></td>
                                     <td>{{ item.item_name }}</td>
                                     <td>
+                                        <span class="badge bg-secondary">{{ item.quantity }}</span>
+                                    </td>
+                                    <td>
                                         <span class="badge bg-primary">{{ item.serial_numbers|length }} Serial(s)</span>
                                         <button class="btn btn-sm btn-outline-secondary ms-1" 
                                                 onclick="showSerialNumbers('{{ item.id }}', '{{ item.item_code }}')">
@@ -187,10 +191,12 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                     <td>
                                         {% set validated = item.serial_numbers|selectattr("is_validated", "equalto", true)|list|length %}
                                         {% set total = item.serial_numbers|length %}
-                                        {% if validated == total %}
-                                            <span class="badge bg-success">{{ validated }}/{{ total }} ✓</span>
+                                        {% if validated == item.quantity %}
+                                            <span class="badge bg-success">{{ validated }}/{{ item.quantity }} ✓</span>
+                                        {% elif validated > item.quantity %}
+                                            <span class="badge bg-danger">{{ validated }}/{{ item.quantity }} ⚠ EXCESS</span>
                                         {% else %}
-                                            <span class="badge bg-warning text-dark">{{ validated }}/{{ total }} ⚠</span>
+                                            <span class="badge bg-warning text-dark">{{ validated }}/{{ item.quantity }} ⚠</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -234,9 +240,26 @@ Serial Number Transfer {{ transfer.transfer_number }}
                         </a>
                         <div>
                             {% if transfer.status == 'draft' and transfer.items %}
+                            {% set can_submit = true %}
+                            {% for item in transfer.items %}
+                                {% set validated = item.serial_numbers|selectattr("is_validated", "equalto", true)|list|length %}
+                                {% if validated != item.quantity %}
+                                    {% set can_submit = false %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if can_submit %}
                             <button class="btn btn-success" onclick="submitTransfer('{{ transfer.id }}')">
                                 <i data-feather="check"></i> Submit for QC Approval
                             </button>
+                            {% else %}
+                            <button class="btn btn-secondary" disabled title="All items must have exactly matching expected quantity and valid serials">
+                                <i data-feather="x-circle"></i> Cannot Submit - Quantity Mismatch
+                            </button>
+                            <div class="alert alert-warning mt-2">
+                                <i data-feather="alert-triangle"></i>
+                                <strong>Cannot submit for QC approval:</strong> Each item must have exactly the same number of valid serial numbers as the expected quantity. Please add or remove serial numbers to match.
+                            </div>
+                            {% endif %}
                             {% elif transfer.status == 'submitted' %}
                             {% if current_user.has_permission('qc_dashboard') or current_user.role in ['admin', 'manager'] %}
                             <div class="alert alert-warning mb-0">
@@ -529,7 +552,7 @@ function checkQuantityMismatch() {
 }
 
 function submitTransfer(transferId) {
-    if (confirm('Are you sure you want to submit this transfer? All serial numbers must be validated.')) {
+    if (confirm('Are you sure you want to submit this transfer? All items must have exactly matching expected quantity and valid serial numbers.')) {
         fetch(`/inventory_transfer/serial/${transferId}/submit`, {
             method: 'POST',
             headers: {
