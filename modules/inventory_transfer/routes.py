@@ -9,6 +9,7 @@ from models import InventoryTransfer, InventoryTransferItem, User, SerialNumberT
 from sqlalchemy import or_
 import logging
 import random
+import re
 import string
 from datetime import datetime
 
