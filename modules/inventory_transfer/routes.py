@@ -1338,24 +1338,6 @@ def validate_series_with_warehouse_sap(serial_number, item_code, warehouse_code)
             'error': f'Validation error: {str(e)}'
         }
 
-def validate_serial_number_with_sap(serial_number, item_code):
-    """Legacy validation function - kept for compatibility"""
-    try:
-        # Use the existing SAP integration
-        from sap_integration import SAPIntegration
-        
-        sap = SAPIntegration()
-        result = sap.validate_serial_number_with_item(serial_number, item_code)
-        
-        return result
-            
-    except Exception as e:
-        logging.error(f"Error validating serial number with SAP: {str(e)}")
-        return {
-            'valid': False,
-            'error': f'Validation error: {str(e)}'
-        }
-
 @transfer_bp.route('/serial/validate', methods=['POST'])
 @login_required
 def validate_serial_api():
