@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Database cleanup migration to remove unwanted modules
-Keeps only User, InventoryTransfer, InventoryTransferItem, and SerialTransfer related tables
+Database cleanup migration to remove batch transfer functionality
+Keeps only User and SerialTransfer related tables
 """
 import logging
 from sqlalchemy import text, inspect
@@ -11,7 +11,7 @@ from app import app, db
 logging.basicConfig(level=logging.INFO)
 
 def cleanup_database():
-    """Remove all unwanted tables and data"""
+    """Remove all batch transfer tables and keep only serial transfer tables"""
     
     with app.app_context():
         try:
@@ -26,16 +26,16 @@ def cleanup_database():
             # Tables to keep (only these will remain)
             keep_tables = {
                 'users',
-                'inventory_transfers', 
-                'inventory_transfer_items',
-                'serial_number_transfers',
-                'serial_number_transfer_items', 
+                'serial_number_transfers', 
+                'serial_number_transfer_items',
                 'serial_number_transfer_serials',
                 'branches'  # Keep branches for user management
             }
             
-            # Tables to remove (all others will be dropped)
+            # Tables to remove (batch transfer and other unwanted modules)
             tables_to_remove = [
+                'inventory_transfers',
+                'inventory_transfer_items',
                 'grpo_documents',
                 'grpo_items', 
                 'pick_lists',
@@ -62,14 +62,14 @@ def cleanup_database():
                 try:
                     connection.execute(text("PRAGMA foreign_keys = OFF"))
                 except:
-                    pass  # Not SQLite
+                    pass  # Not SQLite, probably PostgreSQL
                 
                 # Drop unwanted tables that exist
                 dropped_count = 0
                 for table_name in tables_to_remove:
                     if table_name in existing_tables:
                         try:
-                            connection.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+                            connection.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
                             logging.info(f"✅ Dropped table: {table_name}")
                             dropped_count += 1
                         except Exception as e:
@@ -98,6 +98,8 @@ def cleanup_database():
                 trans.rollback()
                 logging.error(f"❌ Error during cleanup: {e}")
                 return False
+            finally:
+                connection.close()
             
         except Exception as e:
             logging.error(f"❌ Database connection error: {e}")
@@ -113,7 +115,6 @@ def update_user_permissions():
             # New permission structure (only available modules)
             available_permissions = {
                 'dashboard': True,
-                'inventory_transfer': False, 
                 'serial_transfer': False,
                 'user_management': False
             }
@@ -123,9 +124,6 @@ def update_user_permissions():
             
             for user in users:
                 try:
-                    # Get current permissions
-                    current_perms = user.get_permissions()
-                    
                     # Create new permissions based on role and available modules
                     new_perms = available_permissions.copy()
                     
@@ -135,13 +133,15 @@ def update_user_permissions():
                             new_perms[key] = True
                     elif user.role == 'manager':
                         new_perms.update({
-                            'inventory_transfer': True,
                             'serial_transfer': True,
                             'user_management': True
                         })
                     elif user.role == 'user':
                         new_perms.update({
-                            'inventory_transfer': True,
+                            'serial_transfer': True
+                        })
+                    elif user.role == 'qc':
+                        new_perms.update({
                             'serial_transfer': True
                         })
                     
@@ -162,9 +162,8 @@ def update_user_permissions():
 if __name__ == '__main__':
     print("🚀 Starting WMS Database Cleanup Migration")
     print("=" * 50)
-    print("This will remove all modules except:")
+    print("This will remove batch transfer functionality and keep only:")
     print("- User Management")  
-    print("- Inventory Transfer (Batch)")
     print("- Serial Transfer")
     print("=" * 50)
     

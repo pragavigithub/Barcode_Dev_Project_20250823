@@ -50,7 +50,6 @@ class User(UserMixin, db.Model):
         """Get default permissions based on role"""
         permissions = {
             'dashboard': True,
-            'inventory_transfer': False,
             'serial_transfer': False,
             'user_management': False
         }
@@ -61,13 +60,11 @@ class User(UserMixin, db.Model):
                 permissions[key] = True
         elif self.role == 'manager':
             permissions.update({
-                'inventory_transfer': True,
                 'serial_transfer': True,
                 'user_management': True
             })
         elif self.role == 'user':
             permissions.update({
-                'inventory_transfer': True,
                 'serial_transfer': True
             })
 
@@ -78,66 +75,6 @@ class User(UserMixin, db.Model):
         if self.role == 'admin':
             return True
         return self.get_permissions().get(screen, False)
-
-    # Relationships
-    inventory_transfers = relationship('InventoryTransfer',
-                                       back_populates='user',
-                                       foreign_keys='InventoryTransfer.user_id')
-
-
-class InventoryTransfer(db.Model):
-    __tablename__ = 'inventory_transfers'
-
-    id = db.Column(db.Integer, primary_key=True)
-    transfer_request_number = db.Column(db.String(20), nullable=False)
-    sap_document_number = db.Column(db.String(20), nullable=True)
-    status = db.Column(db.String(20),
-                    default='draft')  # draft, submitted, qc_approved, posted, rejected
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    qc_approver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    qc_approved_at = db.Column(db.DateTime, nullable=True)
-    qc_notes = db.Column(db.Text, nullable=True)
-    from_warehouse = db.Column(db.String(20), nullable=True)
-    to_warehouse = db.Column(db.String(20), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime,
-                        default=datetime.utcnow,
-                        onupdate=datetime.utcnow)
-
-    # Relationships
-    user = relationship('User', back_populates='inventory_transfers', foreign_keys=[user_id])
-    qc_approver = relationship('User', foreign_keys=[qc_approver_id])
-    items = relationship('InventoryTransferItem',
-                         back_populates='inventory_transfer')
-
-
-class InventoryTransferItem(db.Model):
-    __tablename__ = 'inventory_transfer_items'
-
-    id = db.Column(db.Integer, primary_key=True)
-    inventory_transfer_id = db.Column(db.Integer,
-                                   db.ForeignKey('inventory_transfers.id'),
-                                   nullable=False)
-    item_code = db.Column(db.String(50), nullable=False)
-    item_name = db.Column(db.String(200), nullable=False)
-    quantity = db.Column(db.Float, nullable=False)
-    requested_quantity = db.Column(db.Float, nullable=False)  # Original requested quantity
-    transferred_quantity = db.Column(db.Float, default=0)  # Actually transferred quantity
-    remaining_quantity = db.Column(db.Float, nullable=False)  # Remaining to transfer
-    unit_of_measure = db.Column(db.String(10), nullable=False)
-    from_bin = db.Column(db.String(20), nullable=True)  # Made nullable for better compatibility
-    to_bin = db.Column(db.String(20), nullable=True)    # Made nullable for better compatibility
-    from_bin_location = db.Column(db.String(50), nullable=True)  # New field for detailed bin location
-    to_bin_location = db.Column(db.String(50), nullable=True)    # New field for detailed bin location
-    batch_number = db.Column(db.String(50), nullable=True)
-    available_batches = db.Column(db.Text, nullable=True)  # JSON list of available batches
-    qc_status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
-    qc_notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    inventory_transfer = relationship('InventoryTransfer',
-                                      back_populates='items')
 
 
 # ================================

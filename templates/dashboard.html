@@ -12,20 +12,8 @@
 
 <!-- Statistics Cards -->
 <div class="row mb-4">
-    {% if current_user.has_permission('inventory_transfer') %}
-    <div class="col-md-6 col-sm-12 mb-3">
-        <div class="card dashboard-card" data-url="{{ url_for('inventory_transfer') }}">
-            <div class="card-body text-center">
-                <i data-feather="move" class="mb-3" style="width: 48px; height: 48px;"></i>
-                <h3>{{ stats.transfer_count }}</h3>
-                <p>Inventory Transfers</p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    
     {% if current_user.has_permission('serial_transfer') %}
-    <div class="col-md-6 col-sm-12 mb-3">
+    <div class="col-md-12 col-sm-12 mb-3">
         <div class="card dashboard-card" data-url="{{ url_for('inventory_transfer_serial') }}">
             <div class="card-body text-center">
                 <i data-feather="hash" class="mb-3" style="width: 48px; height: 48px;"></i>
@@ -46,15 +34,8 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% if current_user.has_permission('inventory_transfer') %}
-                    <div class="col-md-6 mb-3">
-                        <a href="{{ url_for('inventory_transfer') }}" class="btn btn-outline-primary w-100">
-                            <i data-feather="move"></i> New Batch Transfer
-                        </a>
-                    </div>
-                    {% endif %}
                     {% if current_user.has_permission('serial_transfer') %}
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-12 mb-3">
                         <a href="{{ url_for('inventory_transfer_serial') }}" class="btn btn-outline-success w-100">
                             <i data-feather="hash"></i> New Serial Transfer
                         </a>
@@ -128,7 +109,7 @@
                 <div class="text-center text-muted py-4">
                     <i data-feather="activity" style="width: 48px; height: 48px;"></i>
                     <p class="mt-2">No recent activity found</p>
-                    <small>Start by creating an inventory transfer or serial transfer</small>
+                    <small>Start by creating a serial transfer</small>
                 </div>
                 {% endif %}
             </div>

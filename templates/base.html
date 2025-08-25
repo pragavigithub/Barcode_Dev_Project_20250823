@@ -54,13 +54,6 @@
                             <i data-feather="home"></i> Dashboard
                         </a>
                     </li>
-                    {% if current_user.has_permission('inventory_transfer') %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('inventory_transfer') }}">
-                            <i data-feather="move"></i> Batch Transfer
-                        </a>
-                    </li>
-                    {% endif %}
                     {% if current_user.has_permission('serial_transfer') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('inventory_transfer_serial') }}">

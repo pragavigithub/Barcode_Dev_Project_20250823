@@ -6,7 +6,7 @@ import logging
 import json
 
 from app import app, db, login_manager
-from models import User, InventoryTransfer, InventoryTransferItem, SerialNumberTransfer, SerialNumberTransferItem, SerialNumberTransferSerial
+from models import User, SerialNumberTransfer, SerialNumberTransferItem, SerialNumberTransferSerial
 from sap_integration import SAPIntegration
 from sqlalchemy import or_
 
@@ -152,29 +152,17 @@ def logout():
 def dashboard():
     try:
         # Get dashboard statistics for available modules only
-        transfer_count = InventoryTransfer.query.filter_by(user_id=current_user.id).count()
         serial_transfer_count = SerialNumberTransfer.query.filter_by(user_id=current_user.id).count()
         
         stats = {
-            'transfer_count': transfer_count,
             'serial_transfer_count': serial_transfer_count
         }
         
         # Get recent activity - live data from database
         recent_activities = []
         
-        # Get recent inventory transfers
-        recent_transfers = InventoryTransfer.query.filter_by(user_id=current_user.id).order_by(InventoryTransfer.created_at.desc()).limit(5).all()
-        for transfer in recent_transfers:
-            recent_activities.append({
-                'type': 'Inventory Transfer',
-                'description': f"Request: {transfer.transfer_request_number}",
-                'created_at': transfer.created_at,
-                'status': transfer.status
-            })
-        
         # Get recent serial transfers
-        recent_serial_transfers = SerialNumberTransfer.query.filter_by(user_id=current_user.id).order_by(SerialNumberTransfer.created_at.desc()).limit(5).all()
+        recent_serial_transfers = SerialNumberTransfer.query.filter_by(user_id=current_user.id).order_by(SerialNumberTransfer.created_at.desc()).limit(10).all()
         for transfer in recent_serial_transfers:
             recent_activities.append({
                 'type': 'Serial Transfer',
@@ -192,61 +180,11 @@ def dashboard():
                              recent_activities=recent_activities)
     except Exception as e:
         logging.error(f"Error in dashboard: {e}")
-        stats = {'transfer_count': 0, 'serial_transfer_count': 0}
+        stats = {'serial_transfer_count': 0}
         recent_activities = []
         return render_template('dashboard.html', 
                              stats=stats, 
                              recent_activities=recent_activities)
-
-# Inventory Transfer Routes
-@app.route('/inventory_transfer')
-@login_required
-def inventory_transfer():
-    # Screen-level authorization check
-    if not current_user.has_permission('inventory_transfer'):
-        flash('Access denied. You do not have permission to access Inventory Transfer screen.', 'error')
-        return redirect(url_for('dashboard'))
-    
-    try:
-        # Get search and pagination parameters
-        search_term = request.args.get('search', '').strip()
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        
-        # Build query with search functionality
-        query = InventoryTransfer.query.filter_by(user_id=current_user.id)
-        
-        if search_term:
-            query = query.filter(
-                db.or_(
-                    InventoryTransfer.transfer_request_number.contains(search_term),
-                    InventoryTransfer.status.contains(search_term),
-                    InventoryTransfer.sap_document_number.contains(search_term),
-                    InventoryTransfer.from_warehouse.contains(search_term),
-                    InventoryTransfer.to_warehouse.contains(search_term)
-                )
-            )
-        
-        # Add pagination
-        transfers_pagination = query.order_by(InventoryTransfer.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
-        
-        transfers = transfers_pagination.items
-        
-    except Exception as e:
-        logging.error(f"Database error in inventory_transfer: {e}")
-        transfers = []
-        transfers_pagination = None
-        search_term = request.args.get('search', '')
-        per_page = request.args.get('per_page', 10, type=int)
-        flash('Database error occurred', 'warning')
-    
-    return render_template('inventory_transfer.html', 
-                         transfers=transfers,
-                         pagination=transfers_pagination,
-                         search_term=search_term,
-                         per_page=per_page)
 
 # Serial Transfer Routes
 @app.route('/inventory-transfer-serial')
@@ -262,7 +200,7 @@ def inventory_transfer_serial():
         serial_transfers = SerialNumberTransfer.query.filter_by(user_id=current_user.id)\
             .order_by(SerialNumberTransfer.created_at.desc()).all()
         
-        return render_template('modules/inventory_transfer/serial_transfer_index.html', 
+        return render_template('serial_transfer_index.html', 
                              serial_transfers=serial_transfers)
     except Exception as e:
         logging.error(f"Error in inventory_transfer_serial: {e}")
