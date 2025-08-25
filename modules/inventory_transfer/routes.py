@@ -703,19 +703,11 @@ def serial_add_item(transfer_id):
         if not serial_numbers:
             return jsonify({'success': False, 'error': 'At least one serial number is required'}), 400
         
-        # **QUANTITY VALIDATION - Ensure serial count matches expected quantity**
-        actual_count = len(serial_numbers)
-        if actual_count != expected_quantity:
-            if actual_count < expected_quantity:
-                return jsonify({
-                    'success': False, 
-                    'error': f'Quantity mismatch: Expected {expected_quantity} serial numbers, but found {actual_count}. Please add {expected_quantity - actual_count} more serial numbers.'
-                }), 400
-            else:
-                return jsonify({
-                    'success': False, 
-                    'error': f'Quantity mismatch: Expected {expected_quantity} serial numbers, but found {actual_count}. Please remove {actual_count - expected_quantity} extra serial numbers.'
-                }), 400
+        # **ENHANCED QUANTITY VALIDATION - Only valid serial numbers count towards quantity**
+        # We'll validate quantity after SAP B1 validation, not before
+        # This allows users to submit more serials than needed, but only valid ones count
+        total_serials_count = len(serial_numbers)
+        logging.info(f"📊 Processing {total_serials_count} serial numbers for expected quantity of {expected_quantity}")
         
         # **ENHANCED DUPLICATE PREVENTION LOGIC FOR SERIAL NUMBER TRANSFERS**
         # Check if this item already exists in this transfer (case-insensitive with trimming)
@@ -994,6 +986,28 @@ def serial_add_item(transfer_id):
                     # Log the failure but continue with next batch to maintain system stability
                     continue
         
+        # **ENHANCED QUANTITY VALIDATION - Check valid serials against expected quantity**
+        if validated_count != expected_quantity:
+            # Rollback the transaction since quantity doesn't match
+            db.session.rollback()
+            
+            if validated_count < expected_quantity:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Insufficient valid serial numbers: Expected {expected_quantity}, but only {validated_count} serial numbers are valid in SAP B1. Please add {expected_quantity - validated_count} more valid serial numbers.',
+                    'validated_count': validated_count,
+                    'expected_quantity': expected_quantity,
+                    'total_submitted': len(serial_numbers)
+                }), 400
+            else:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Too many valid serial numbers: Expected {expected_quantity}, but {validated_count} serial numbers are valid in SAP B1. Please remove {validated_count - expected_quantity} valid serial numbers or increase the expected quantity.',
+                    'validated_count': validated_count,
+                    'expected_quantity': expected_quantity,
+                    'total_submitted': len(serial_numbers)
+                }), 400
+        
         # FINAL COMMIT WITH COMPREHENSIVE REPORTING
         try:
             db.session.commit()
@@ -1008,6 +1022,8 @@ def serial_add_item(transfer_id):
             logging.info(f"   Total Serial Numbers: {len(serial_numbers)}")
             logging.info(f"   Successfully Validated: {validated_count}")
             logging.info(f"   Failed/Unvalidated: {len(serial_numbers) - validated_count}")
+            logging.info(f"   Expected Quantity: {expected_quantity}")
+            logging.info(f"   Quantity Match: {'✅ YES' if validated_count == expected_quantity else '❌ NO'}")
             logging.info(f"   Success Rate: {success_rate:.1f}%")
             logging.info(f"   Batches Processed: {total_batches}")
             
@@ -1018,9 +1034,11 @@ def serial_add_item(transfer_id):
         
         return jsonify({
             'success': True, 
-            'message': f'Item {item_code} added with {len(serial_numbers)} serial numbers ({validated_count} validated)',
+            'message': f'Item {item_code} added successfully! {validated_count} valid serial numbers match the expected quantity of {expected_quantity}. Total submitted: {len(serial_numbers)}',
             'validated_count': validated_count,
-            'total_count': len(serial_numbers)
+            'expected_quantity': expected_quantity,
+            'total_count': len(serial_numbers),
+            'invalid_count': len(serial_numbers) - validated_count
         })
         
     except Exception as e:

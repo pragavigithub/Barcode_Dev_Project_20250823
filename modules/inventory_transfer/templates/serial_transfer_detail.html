@@ -311,7 +311,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <label for="quantity" class="form-label">Expected Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="quantity" name="quantity" required min="1" 
                                        placeholder="Enter expected quantity" oninput="updateQuantityInfo()">
-                                <small class="text-muted">Number of serial numbers must match this quantity exactly</small>
+                                <small class="text-muted">Only valid serial numbers (validated in SAP B1) count towards this quantity</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -320,7 +320,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <div class="form-control-plaintext">
                                     <span id="serialCountStatus" class="badge bg-secondary">Enter quantity first</span>
                                 </div>
-                                <small class="text-muted" id="serialCountMessage">Serial count will be validated against quantity</small>
+                                <small class="text-muted" id="serialCountMessage">Only valid serials count towards quantity</small>
                             </div>
                         </div>
                     </div>
@@ -333,11 +333,11 @@ Serial Number Transfer {{ transfer.transfer_number }}
                         <small class="text-muted">
                             Each serial number will be validated against SAP B1 and checked against the specified Item Code.
                         </small>
-                        <div id="quantityMismatchWarning" style="display: none;" class="alert alert-danger mt-2">
-                            <i data-feather="alert-circle"></i>
-                            <strong>Quantity Mismatch!</strong>
+                        <div id="quantityMismatchWarning" style="display: none;" class="alert alert-info mt-2">
+                            <i data-feather="info"></i>
+                            <strong>Validation Info:</strong>
                             <span id="quantityMismatchMessage"></span>
-                            <br><small>The number of serial numbers must exactly match the expected quantity.</small>
+                            <br><small>Serial numbers will be validated against SAP B1. Only valid ones count towards the expected quantity.</small>
                         </div>
                         <div id="duplicateWarning" style="display: none;" class="alert alert-warning mt-2">
                             <i data-feather="alert-triangle"></i>
@@ -473,42 +473,29 @@ function updateQuantityInfo() {
     
     const expectedQuantity = parseInt(quantityInput.value) || 0;
     const serialNumbers = parseSerialNumbers(serialsTextarea.value);
-    const actualCount = serialNumbers.length;
+    const totalCount = serialNumbers.length;
     
     if (expectedQuantity === 0) {
         statusBadge.className = 'badge bg-secondary';
         statusBadge.textContent = 'Enter quantity first';
-        statusMessage.textContent = 'Serial count will be validated against quantity';
+        statusMessage.textContent = 'Only valid serial numbers will count towards quantity';
         quantityWarning.style.display = 'none';
         return;
     }
     
-    if (actualCount === 0) {
+    if (totalCount === 0) {
         statusBadge.className = 'badge bg-secondary';
         statusBadge.textContent = `0/${expectedQuantity} serial numbers`;
-        statusMessage.textContent = 'Enter serial numbers to validate';
+        statusMessage.textContent = 'Enter serial numbers - only valid ones will count';
         quantityWarning.style.display = 'none';
         return;
     }
     
-    if (actualCount === expectedQuantity) {
-        statusBadge.className = 'badge bg-success';
-        statusBadge.textContent = `${actualCount}/${expectedQuantity} ✓ Match`;
-        statusMessage.textContent = 'Quantity matches serial count - Ready to validate';
-        quantityWarning.style.display = 'none';
-    } else if (actualCount < expectedQuantity) {
-        statusBadge.className = 'badge bg-warning text-dark';
-        statusBadge.textContent = `${actualCount}/${expectedQuantity} ⚠ Need ${expectedQuantity - actualCount} more`;
-        statusMessage.textContent = `Add ${expectedQuantity - actualCount} more serial numbers`;
-        quantityWarning.style.display = 'block';
-        quantityMessage.textContent = `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please add ${expectedQuantity - actualCount} more.`;
-    } else {
-        statusBadge.className = 'badge bg-danger';
-        statusBadge.textContent = `${actualCount}/${expectedQuantity} ❌ ${actualCount - expectedQuantity} extra`;
-        statusMessage.textContent = `Remove ${actualCount - expectedQuantity} serial numbers`;
-        quantityWarning.style.display = 'block';
-        quantityMessage.textContent = `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please remove ${actualCount - expectedQuantity} extra entries.`;
-    }
+    // Show total count but indicate validation is needed
+    statusBadge.className = 'badge bg-info';
+    statusBadge.textContent = `${totalCount} entered - Validation needed`;
+    statusMessage.textContent = `Only ${expectedQuantity} valid serial numbers required for quantity match`;
+    quantityWarning.style.display = 'none';
     
     // Refresh feather icons if needed
     if (typeof feather !== 'undefined') {
@@ -528,31 +515,18 @@ function checkQuantityMismatch() {
     
     const expectedQuantity = parseInt(quantityInput.value) || 0;
     const serialNumbers = parseSerialNumbers(serialsTextarea.value);
-    const actualCount = serialNumbers.length;
+    const totalCount = serialNumbers.length;
     
     if (expectedQuantity === 0) {
         return { hasMismatch: true, message: 'Please enter the expected quantity first.' };
     }
     
-    if (actualCount === 0) {
+    if (totalCount === 0) {
         return { hasMismatch: true, message: 'Please enter serial numbers.' };
     }
     
-    if (actualCount !== expectedQuantity) {
-        if (actualCount < expectedQuantity) {
-            return { 
-                hasMismatch: true, 
-                message: `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please add ${expectedQuantity - actualCount} more.` 
-            };
-        } else {
-            return { 
-                hasMismatch: true, 
-                message: `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please remove ${actualCount - expectedQuantity} extra entries.` 
-            };
-        }
-    }
-    
-    return { hasMismatch: false, message: 'Quantity matches perfectly!' };
+    // Allow submission regardless of total count - backend will validate only valid serials
+    return { hasMismatch: false, message: 'Serial numbers will be validated against SAP B1. Only valid ones count towards quantity.' };
 }
 
 function submitTransfer(transferId) {
