@@ -305,14 +305,40 @@ Serial Number Transfer {{ transfer.transfer_number }}
                         </div>
                     </div>
                     
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quantity" class="form-label">Expected Quantity <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="quantity" name="quantity" required min="1" 
+                                       placeholder="Enter expected quantity" oninput="updateQuantityInfo()">
+                                <small class="text-muted">Number of serial numbers must match this quantity exactly</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Serial Count Status</label>
+                                <div class="form-control-plaintext">
+                                    <span id="serialCountStatus" class="badge bg-secondary">Enter quantity first</span>
+                                </div>
+                                <small class="text-muted" id="serialCountMessage">Serial count will be validated against quantity</small>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="serial_numbers" class="form-label">Serial Numbers <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="serial_numbers" name="serial_numbers" rows="8" required
                                   placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"
-                                  oninput="highlightDuplicateSerials()"></textarea>
+                                  oninput="highlightDuplicateSerials(); updateQuantityInfo()"></textarea>
                         <small class="text-muted">
                             Each serial number will be validated against SAP B1 and checked against the specified Item Code.
                         </small>
+                        <div id="quantityMismatchWarning" style="display: none;" class="alert alert-danger mt-2">
+                            <i data-feather="alert-circle"></i>
+                            <strong>Quantity Mismatch!</strong>
+                            <span id="quantityMismatchMessage"></span>
+                            <br><small>The number of serial numbers must exactly match the expected quantity.</small>
+                        </div>
                         <div id="duplicateWarning" style="display: none;" class="alert alert-warning mt-2">
                             <i data-feather="alert-triangle"></i>
                             <strong>Duplicate Serial Numbers Detected:</strong>
@@ -392,6 +418,13 @@ function addItemWithSerials(event) {
     const formData = new FormData(form);
     const submitBtn = form.querySelector('button[type="submit"]');
     
+    // Check quantity vs serial count first
+    const quantityMismatch = checkQuantityMismatch();
+    if (quantityMismatch.hasMismatch) {
+        alert(`❌ Quantity Mismatch: ${quantityMismatch.message}\n\nPlease ensure the number of serial numbers exactly matches the expected quantity.`);
+        return false;
+    }
+    
     // Check for duplicates and warn user
     const duplicates = getCurrentDuplicates();
     if (duplicates.length > 0) {
@@ -427,6 +460,99 @@ function addItemWithSerials(event) {
     });
     
     return false;
+}
+
+// Quantity validation functions
+function updateQuantityInfo() {
+    const quantityInput = document.getElementById('quantity');
+    const serialsTextarea = document.getElementById('serial_numbers');
+    const statusBadge = document.getElementById('serialCountStatus');
+    const statusMessage = document.getElementById('serialCountMessage');
+    const quantityWarning = document.getElementById('quantityMismatchWarning');
+    const quantityMessage = document.getElementById('quantityMismatchMessage');
+    
+    const expectedQuantity = parseInt(quantityInput.value) || 0;
+    const serialNumbers = parseSerialNumbers(serialsTextarea.value);
+    const actualCount = serialNumbers.length;
+    
+    if (expectedQuantity === 0) {
+        statusBadge.className = 'badge bg-secondary';
+        statusBadge.textContent = 'Enter quantity first';
+        statusMessage.textContent = 'Serial count will be validated against quantity';
+        quantityWarning.style.display = 'none';
+        return;
+    }
+    
+    if (actualCount === 0) {
+        statusBadge.className = 'badge bg-secondary';
+        statusBadge.textContent = `0/${expectedQuantity} serial numbers`;
+        statusMessage.textContent = 'Enter serial numbers to validate';
+        quantityWarning.style.display = 'none';
+        return;
+    }
+    
+    if (actualCount === expectedQuantity) {
+        statusBadge.className = 'badge bg-success';
+        statusBadge.textContent = `${actualCount}/${expectedQuantity} ✓ Match`;
+        statusMessage.textContent = 'Quantity matches serial count - Ready to validate';
+        quantityWarning.style.display = 'none';
+    } else if (actualCount < expectedQuantity) {
+        statusBadge.className = 'badge bg-warning text-dark';
+        statusBadge.textContent = `${actualCount}/${expectedQuantity} ⚠ Need ${expectedQuantity - actualCount} more`;
+        statusMessage.textContent = `Add ${expectedQuantity - actualCount} more serial numbers`;
+        quantityWarning.style.display = 'block';
+        quantityMessage.textContent = `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please add ${expectedQuantity - actualCount} more.`;
+    } else {
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.textContent = `${actualCount}/${expectedQuantity} ❌ ${actualCount - expectedQuantity} extra`;
+        statusMessage.textContent = `Remove ${actualCount - expectedQuantity} serial numbers`;
+        quantityWarning.style.display = 'block';
+        quantityMessage.textContent = `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please remove ${actualCount - expectedQuantity} extra entries.`;
+    }
+    
+    // Refresh feather icons if needed
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
+}
+
+function parseSerialNumbers(text) {
+    if (!text) return [];
+    const serialNumbers = text.trim().split(/[,\n\r\s]+/).filter(sn => sn.trim());
+    return serialNumbers.map(sn => sn.trim()).filter(sn => sn);
+}
+
+function checkQuantityMismatch() {
+    const quantityInput = document.getElementById('quantity');
+    const serialsTextarea = document.getElementById('serial_numbers');
+    
+    const expectedQuantity = parseInt(quantityInput.value) || 0;
+    const serialNumbers = parseSerialNumbers(serialsTextarea.value);
+    const actualCount = serialNumbers.length;
+    
+    if (expectedQuantity === 0) {
+        return { hasMismatch: true, message: 'Please enter the expected quantity first.' };
+    }
+    
+    if (actualCount === 0) {
+        return { hasMismatch: true, message: 'Please enter serial numbers.' };
+    }
+    
+    if (actualCount !== expectedQuantity) {
+        if (actualCount < expectedQuantity) {
+            return { 
+                hasMismatch: true, 
+                message: `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please add ${expectedQuantity - actualCount} more.` 
+            };
+        } else {
+            return { 
+                hasMismatch: true, 
+                message: `Expected ${expectedQuantity} serial numbers, but found ${actualCount}. Please remove ${actualCount - expectedQuantity} extra entries.` 
+            };
+        }
+    }
+    
+    return { hasMismatch: false, message: 'Quantity matches perfectly!' };
 }
 
 function submitTransfer(transferId) {

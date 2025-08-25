@@ -680,9 +680,20 @@ def serial_add_item(transfer_id):
         item_code = request.form.get('item_code')
         item_name = request.form.get('item_name')
         serial_numbers_text = request.form.get('serial_numbers', '')
+        quantity = request.form.get('quantity')
         
-        if not all([item_code, item_name, serial_numbers_text]):
-            return jsonify({'success': False, 'error': 'Item Code, Item Name, and Serial Numbers are required'}), 400
+        if not all([item_code, item_name, serial_numbers_text, quantity]):
+            return jsonify({'success': False, 'error': 'Item Code, Item Name, Quantity, and Serial Numbers are required'}), 400
+        
+        # Validate quantity
+        try:
+            if not quantity:
+                return jsonify({'success': False, 'error': 'Quantity is required'}), 400
+            expected_quantity = int(quantity)
+            if expected_quantity <= 0:
+                return jsonify({'success': False, 'error': 'Quantity must be a positive number'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Invalid quantity format'}), 400
         
         # Parse serial numbers (split by newlines, commas, or spaces)
         import re
@@ -691,6 +702,20 @@ def serial_add_item(transfer_id):
         
         if not serial_numbers:
             return jsonify({'success': False, 'error': 'At least one serial number is required'}), 400
+        
+        # **QUANTITY VALIDATION - Ensure serial count matches expected quantity**
+        actual_count = len(serial_numbers)
+        if actual_count != expected_quantity:
+            if actual_count < expected_quantity:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Quantity mismatch: Expected {expected_quantity} serial numbers, but found {actual_count}. Please add {expected_quantity - actual_count} more serial numbers.'
+                }), 400
+            else:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Quantity mismatch: Expected {expected_quantity} serial numbers, but found {actual_count}. Please remove {actual_count - expected_quantity} extra serial numbers.'
+                }), 400
         
         # **ENHANCED DUPLICATE PREVENTION LOGIC FOR SERIAL NUMBER TRANSFERS**
         # Check if this item already exists in this transfer (case-insensitive with trimming)
