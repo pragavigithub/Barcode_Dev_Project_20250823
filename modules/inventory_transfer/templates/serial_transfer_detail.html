@@ -311,7 +311,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <label for="quantity" class="form-label">Expected Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="quantity" name="quantity" required min="1" 
                                        placeholder="Enter expected quantity" oninput="updateQuantityInfo()">
-                                <small class="text-muted">Only valid serial numbers (validated in SAP B1) count towards this quantity</small>
+                                <small class="text-muted">You can submit any number of serials. Valid ones will be highlighted in green, invalid ones in red for manual review.</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -320,7 +320,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <div class="form-control-plaintext">
                                     <span id="serialCountStatus" class="badge bg-secondary">Enter quantity first</span>
                                 </div>
-                                <small class="text-muted" id="serialCountMessage">Only valid serials count towards quantity</small>
+                                <small class="text-muted" id="serialCountMessage">All serials will be saved for manual review</small>
                             </div>
                         </div>
                     </div>
@@ -331,13 +331,13 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                   placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"
                                   oninput="highlightDuplicateSerials(); updateQuantityInfo()"></textarea>
                         <small class="text-muted">
-                            Each serial number will be validated against SAP B1 and checked against the specified Item Code.
+                            Each serial number will be validated against SAP B1. Valid serials appear in green, invalid ones in red. You can manually manage them after adding.
                         </small>
                         <div id="quantityMismatchWarning" style="display: none;" class="alert alert-info mt-2">
                             <i data-feather="info"></i>
-                            <strong>Validation Info:</strong>
+                            <strong>Info:</strong>
                             <span id="quantityMismatchMessage"></span>
-                            <br><small>Serial numbers will be validated against SAP B1. Only valid ones count towards the expected quantity.</small>
+                            <br><small>All serial numbers will be saved. You can review and manage them individually after validation.</small>
                         </div>
                         <div id="duplicateWarning" style="display: none;" class="alert alert-warning mt-2">
                             <i data-feather="alert-triangle"></i>
@@ -421,19 +421,10 @@ function addItemWithSerials(event) {
     const formData = new FormData(form);
     const submitBtn = form.querySelector('button[type="submit"]');
     
-    // Check quantity vs serial count first
-    const quantityMismatch = checkQuantityMismatch();
-    if (quantityMismatch.hasMismatch) {
-        alert(`❌ Quantity Mismatch: ${quantityMismatch.message}\n\nPlease ensure the number of serial numbers exactly matches the expected quantity.`);
-        return false;
-    }
-    
-    // Check for duplicates and warn user
+    // Check for duplicates and inform user
     const duplicates = getCurrentDuplicates();
     if (duplicates.length > 0) {
-        if (!confirm(`⚠️ Duplicate serial numbers detected: ${duplicates.join(', ')}\n\nDo you want to continue? Duplicates will be added and you can review them individually in the serial numbers list.`)) {
-            return false;
-        }
+        console.log(`⚠️ Duplicate serial numbers detected: ${duplicates.join(', ')} - will be saved for manual review`);
     }
     
     // Show loading state
@@ -447,7 +438,12 @@ function addItemWithSerials(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`✅ ${data.message}`);
+            // Show success message with detailed info
+            let message = data.message;
+            if (data.needs_review) {
+                message += '\n\nClick "View" next to the item to review and manage individual serial numbers.';
+            }
+            alert(`✅ ${message}`);
             location.reload();
         } else {
             alert(`❌ Error: ${data.error}`);

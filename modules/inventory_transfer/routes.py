@@ -986,29 +986,9 @@ def serial_add_item(transfer_id):
                     # Log the failure but continue with next batch to maintain system stability
                     continue
         
-        # **STRICT QUANTITY ENFORCEMENT - Must match exactly**
-        if validated_count != expected_quantity:
-            # Do NOT save any data if quantity doesn't match exactly
-            db.session.rollback()
-            
-            if validated_count < expected_quantity:
-                missing = expected_quantity - validated_count
-                return jsonify({
-                    'success': False, 
-                    'error': f'Need exactly {expected_quantity} valid serial numbers. Only {validated_count} are valid in SAP B1. Please add {missing} more valid serial numbers.',
-                    'validated_count': validated_count,
-                    'expected_quantity': expected_quantity,
-                    'total_submitted': len(serial_numbers)
-                }), 400
-            else:
-                extra = validated_count - expected_quantity
-                return jsonify({
-                    'success': False, 
-                    'error': f'Too many valid serial numbers! Expected exactly {expected_quantity}, but {validated_count} are valid in SAP B1. Please remove {extra} serial numbers and submit again.',
-                    'validated_count': validated_count,
-                    'expected_quantity': expected_quantity,
-                    'total_submitted': len(serial_numbers)
-                }), 400
+        # **FLEXIBLE QUANTITY MANAGEMENT - Save all serial numbers for manual review**
+        # Users can now manually add/remove valid serial numbers to match required quantity
+        # No strict validation - let users manage their serial numbers as needed
         
         # FINAL COMMIT WITH COMPREHENSIVE REPORTING
         try:
@@ -1034,12 +1014,19 @@ def serial_add_item(transfer_id):
             db.session.rollback()
             raise
         
-        # **SUCCESS - EXACT QUANTITY MATCH**
+        # **SUCCESS - ALL SERIAL NUMBERS SAVED FOR MANUAL MANAGEMENT**
         invalid_count = len(serial_numbers) - validated_count
-        message = f'✅ Item {item_code} added successfully! Exactly {validated_count} valid serial numbers submitted for quantity {expected_quantity}.'
+        message = f'✅ Item {item_code} added successfully! {validated_count} valid and {invalid_count} invalid serial numbers saved.'
         
-        if invalid_count > 0:
-            message += f' {invalid_count} invalid serial(s) were also saved for your review.'
+        if validated_count != expected_quantity:
+            if validated_count > expected_quantity:
+                extra = validated_count - expected_quantity
+                message += f' You have {extra} extra valid serials - you can manually remove unwanted ones.'
+            else:
+                missing = expected_quantity - validated_count
+                message += f' You need {missing} more valid serials - you can add more or remove invalid ones.'
+        else:
+            message += f' Perfect quantity match!'
         
         return jsonify({
             'success': True, 
@@ -1048,7 +1035,8 @@ def serial_add_item(transfer_id):
             'expected_quantity': expected_quantity,
             'total_count': len(serial_numbers),
             'invalid_count': invalid_count,
-            'quantity_match': True
+            'quantity_match': validated_count == expected_quantity,
+            'needs_review': validated_count != expected_quantity
         })
         
     except Exception as e:
