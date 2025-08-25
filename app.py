@@ -242,9 +242,5 @@ except Exception as e:
     app.config['DUAL_DB'] = None
     logging.info("💡 MySQL sync disabled, using single database mode")
 
-# Import and register blueprints
-from modules.inventory_transfer.routes import transfer_bp
-app.register_blueprint(transfer_bp)
-
 # Import routes to register them
 import routes
