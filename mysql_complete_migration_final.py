@@ -464,8 +464,24 @@ BACKUP_PATH=backups/
                     except Exception as e:
                         logger.warning(f"⚠️ Could not add column inventory_transfer_items.{col_name}: {e}")
 
+        # Check and add missing columns for serial_number_transfer_items table
+        if self.table_exists('serial_number_transfer_items'):
+            logger.info("Checking serial_number_transfer_items table for missing columns...")
+            
+            serial_transfer_item_columns = [
+                ('quantity', 'INT NOT NULL DEFAULT 1'),
+            ]
+            
+            for col_name, col_def in serial_transfer_item_columns:
+                if not self.column_exists('serial_number_transfer_items', col_name):
+                    try:
+                        self.execute_query(f"ALTER TABLE serial_number_transfer_items ADD COLUMN {col_name} {col_def}")
+                        logger.info(f"✅ Added missing column: serial_number_transfer_items.{col_name} - CRITICAL FOR QUANTITY VALIDATION")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not add column serial_number_transfer_items.{col_name}: {e}")
+
         self.connection.commit()
-        logger.info("✅ Column migration completed - QR Code generation, Sales Order integration, and SAP B1 inventory transfer enhancements updated!")
+        logger.info("✅ Column migration completed - QR Code generation, Sales Order integration, Serial Transfer quantity validation, and SAP B1 inventory transfer enhancements updated!")
     
     def create_all_tables(self):
         """Create all WMS tables in correct order (dependencies first)"""
@@ -1191,6 +1207,7 @@ BACKUP_PATH=backups/
                     serial_transfer_id INT NOT NULL,
                     item_code VARCHAR(50) NOT NULL,
                     item_name VARCHAR(200),
+                    quantity INT NOT NULL,
                     unit_of_measure VARCHAR(10) DEFAULT 'EA',
                     from_warehouse_code VARCHAR(10) NOT NULL,
                     to_warehouse_code VARCHAR(10) NOT NULL,
