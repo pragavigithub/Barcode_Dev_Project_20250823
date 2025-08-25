@@ -311,7 +311,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <label for="quantity" class="form-label">Expected Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="quantity" name="quantity" required min="1" 
                                        placeholder="Enter expected quantity" oninput="updateQuantityInfo()">
-                                <small class="text-muted">You can submit any number of serials. Valid ones will be highlighted in green, invalid ones in red for manual review.</small>
+                                <small class="text-muted">You can submit up to expected quantity of valid serials. Excess valid serials will be rejected - remove extras before submitting.</small>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -320,7 +320,7 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                 <div class="form-control-plaintext">
                                     <span id="serialCountStatus" class="badge bg-secondary">Enter quantity first</span>
                                 </div>
-                                <small class="text-muted" id="serialCountMessage">All serials will be saved for manual review</small>
+                                <small class="text-muted" id="serialCountMessage">Excess valid serials will prevent submission - remove extras first</small>
                             </div>
                         </div>
                     </div>
@@ -331,13 +331,13 @@ Serial Number Transfer {{ transfer.transfer_number }}
                                   placeholder="Enter serial numbers (one per line, or separated by commas/spaces)&#10;Example:&#10;SRRR104&#10;SRRR105&#10;SRRR106"
                                   oninput="highlightDuplicateSerials(); updateQuantityInfo()"></textarea>
                         <small class="text-muted">
-                            Each serial number will be validated against SAP B1. Valid serials appear in green, invalid ones in red. You can manually manage them after adding.
+                            Each serial number will be validated against SAP B1. If you have more valid serials than expected quantity, remove extras before submitting.
                         </small>
-                        <div id="quantityMismatchWarning" style="display: none;" class="alert alert-info mt-2">
-                            <i data-feather="info"></i>
-                            <strong>Info:</strong>
+                        <div id="quantityMismatchWarning" style="display: none;" class="alert alert-warning mt-2">
+                            <i data-feather="alert-triangle"></i>
+                            <strong>Excess Serials Warning:</strong>
                             <span id="quantityMismatchMessage"></span>
-                            <br><small>All serial numbers will be saved. You can review and manage them individually after validation.</small>
+                            <br><small>Remove extra serial numbers to match expected quantity, or the item won't be added.</small>
                         </div>
                         <div id="duplicateWarning" style="display: none;" class="alert alert-warning mt-2">
                             <i data-feather="alert-triangle"></i>
