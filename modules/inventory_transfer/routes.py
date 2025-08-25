@@ -986,8 +986,29 @@ def serial_add_item(transfer_id):
                     # Log the failure but continue with next batch to maintain system stability
                     continue
         
-        # **SAVE ALL SERIAL NUMBERS - Both valid and invalid for user management**
-        # Always save the data so users can see and manage invalid serial numbers
+        # **STRICT QUANTITY ENFORCEMENT - Must match exactly**
+        if validated_count != expected_quantity:
+            # Do NOT save any data if quantity doesn't match exactly
+            db.session.rollback()
+            
+            if validated_count < expected_quantity:
+                missing = expected_quantity - validated_count
+                return jsonify({
+                    'success': False, 
+                    'error': f'Need exactly {expected_quantity} valid serial numbers. Only {validated_count} are valid in SAP B1. Please add {missing} more valid serial numbers.',
+                    'validated_count': validated_count,
+                    'expected_quantity': expected_quantity,
+                    'total_submitted': len(serial_numbers)
+                }), 400
+            else:
+                extra = validated_count - expected_quantity
+                return jsonify({
+                    'success': False, 
+                    'error': f'Too many valid serial numbers! Expected exactly {expected_quantity}, but {validated_count} are valid in SAP B1. Please remove {extra} serial numbers and submit again.',
+                    'validated_count': validated_count,
+                    'expected_quantity': expected_quantity,
+                    'total_submitted': len(serial_numbers)
+                }), 400
         
         # FINAL COMMIT WITH COMPREHENSIVE REPORTING
         try:
@@ -1013,32 +1034,21 @@ def serial_add_item(transfer_id):
             db.session.rollback()
             raise
         
-        # **QUANTITY STATUS MESSAGE - Always successful, but show quantity status**
+        # **SUCCESS - EXACT QUANTITY MATCH**
         invalid_count = len(serial_numbers) - validated_count
+        message = f'✅ Item {item_code} added successfully! Exactly {validated_count} valid serial numbers submitted for quantity {expected_quantity}.'
         
-        if validated_count == expected_quantity:
-            message = f'✅ Item {item_code} added successfully! {validated_count} valid serial numbers match the expected quantity perfectly.'
-            success_status = True
-        elif validated_count < expected_quantity:
-            missing = expected_quantity - validated_count
-            message = f'⚠️ Item {item_code} added with {validated_count}/{expected_quantity} valid serials. Need {missing} more valid serials. You can delete invalid ones and add more.'
-            success_status = True  # Still successful - user can manage the serials
-        else:
-            extra = validated_count - expected_quantity
-            message = f'⚠️ Item {item_code} added with {validated_count}/{expected_quantity} valid serials. {extra} extra valid serials found. You can delete extras or increase quantity.'
-            success_status = True  # Still successful - user can manage the serials
-            
         if invalid_count > 0:
-            message += f' {invalid_count} invalid serial(s) can be reviewed and deleted.'
+            message += f' {invalid_count} invalid serial(s) were also saved for your review.'
         
         return jsonify({
-            'success': success_status, 
+            'success': True, 
             'message': message,
             'validated_count': validated_count,
             'expected_quantity': expected_quantity,
             'total_count': len(serial_numbers),
             'invalid_count': invalid_count,
-            'quantity_match': validated_count == expected_quantity
+            'quantity_match': True
         })
         
     except Exception as e:
@@ -1274,6 +1284,106 @@ def serial_delete_serial_number(serial_id):
         
     except Exception as e:
         logging.error(f"Error deleting serial number: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@transfer_bp.route('/serial/items/<int:item_id>/add_more_serials', methods=['POST'])
+@login_required
+def serial_add_more_serials(item_id):
+    """Add more serial numbers to existing item"""
+    try:
+        from models import SerialNumberTransferItem
+        
+        item = SerialNumberTransferItem.query.get_or_404(item_id)
+        transfer = item.serial_transfer
+        
+        # Check permissions
+        if transfer.user_id != current_user.id and current_user.role not in ['admin', 'manager']:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        if transfer.status != 'draft':
+            return jsonify({'success': False, 'error': 'Cannot add serial numbers to non-draft transfer'}), 400
+        
+        # Get form data
+        serial_numbers_text = request.form.get('serial_numbers', '')
+        expected_quantity = item.quantity  # Use existing item quantity
+        
+        if not serial_numbers_text.strip():
+            return jsonify({'success': False, 'error': 'Serial numbers are required'}), 400
+        
+        # Parse and validate serial numbers
+        serial_numbers = [s.strip() for s in re.split(r'[,\n\r\s]+', serial_numbers_text.strip()) if s.strip()]
+        
+        if not serial_numbers:
+            return jsonify({'success': False, 'error': 'No valid serial numbers found'}), 400
+        
+        # Check for duplicates within this item
+        existing_serials = {s.serial_number for s in item.serial_numbers}
+        new_serials = []
+        duplicate_serials = []
+        
+        for serial in serial_numbers:
+            if serial in existing_serials:
+                duplicate_serials.append(serial)
+            else:
+                new_serials.append(serial)
+        
+        if duplicate_serials:
+            return jsonify({
+                'success': False, 
+                'error': f'Duplicate serial numbers found: {", ".join(duplicate_serials)}. These already exist for this item.'
+            }), 400
+        
+        if not new_serials:
+            return jsonify({'success': False, 'error': 'No new serial numbers to add'}), 400
+        
+        # Validate against SAP B1 and add serials
+        validated_count = 0
+        for serial_number in new_serials:
+            validation_result = validate_series_with_warehouse_sap(serial_number, item.item_code, transfer.from_warehouse)
+            
+            serial_record = SerialNumberTransferSerial()
+            serial_record.transfer_item_id = item.id
+            serial_record.serial_number = serial_number
+            serial_record.internal_serial_number = validation_result.get('SerialNumber') or validation_result.get('DistNumber', serial_number)
+            serial_record.system_serial_number = validation_result.get('SystemNumber')
+            serial_record.is_validated = validation_result.get('valid', False)
+            serial_record.validation_error = validation_result.get('error') or validation_result.get('warning')
+            
+            if validation_result.get('valid'):
+                validated_count += 1
+            
+            db.session.add(serial_record)
+        
+        db.session.commit()
+        
+        # Check total valid serials vs expected quantity
+        total_valid = len([s for s in item.serial_numbers if s.is_validated])
+        invalid_count = len(new_serials) - validated_count
+        
+        if total_valid == expected_quantity:
+            message = f'✅ Added {len(new_serials)} serial numbers! Now have exactly {total_valid} valid serials matching quantity {expected_quantity}.'
+        elif total_valid < expected_quantity:
+            missing = expected_quantity - total_valid
+            message = f'⚠️ Added {len(new_serials)} serial numbers. Total: {total_valid}/{expected_quantity} valid serials. Need {missing} more.'
+        else:
+            extra = total_valid - expected_quantity
+            message = f'⚠️ Added {len(new_serials)} serial numbers. Total: {total_valid}/{expected_quantity} valid serials. {extra} extra valid serials found.'
+        
+        if invalid_count > 0:
+            message += f' {invalid_count} new invalid serial(s) added for review.'
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'new_serials_added': len(new_serials),
+            'validated_count': validated_count,
+            'total_valid': total_valid,
+            'expected_quantity': expected_quantity
+        })
+        
+    except Exception as e:
+        logging.error(f"Error adding more serial numbers: {str(e)}")
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @transfer_bp.route('/serial/serials/<int:serial_id>/edit', methods=['POST'])

@@ -398,6 +398,9 @@ Serial Number Transfer {{ transfer.transfer_number }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="addMoreSerialsBtn" onclick="showAddMoreSerialsForm()" style="display: none;">
+                    <i data-feather="plus"></i> Add More Serials
+                </button>
             </div>
         </div>
     </div>
@@ -609,9 +612,17 @@ function showSerialNumbers(itemId, itemCode) {
 function renderSerialsTable() {
     const content = document.getElementById('serialNumbersContent');
     const filterValue = document.getElementById('validationFilter').value;
+    const addButton = document.getElementById('addMoreSerialsBtn');
     
     if (!content || !allSerialNumbers) {
         return;
+    }
+    
+    // Show "Add More Serials" button only for draft transfers
+    if (currentTransferStatus === 'draft') {
+        addButton.style.display = 'inline-block';
+    } else {
+        addButton.style.display = 'none';
     }
     
     // Filter serials based on validation status
@@ -1032,6 +1043,46 @@ function scanItemCode() {
             document.getElementById('item_code').value = manualCode.trim();
         }
     }
+}
+
+function showAddMoreSerialsForm() {
+    if (!currentItemId) {
+        alert('❌ Error: No item selected');
+        return;
+    }
+    
+    const serialNumbers = prompt(`Add more serial numbers for this item:
+    
+Enter serial numbers (one per line or separated by commas):`);
+    
+    if (!serialNumbers || !serialNumbers.trim()) {
+        return; // User cancelled or entered nothing
+    }
+    
+    // Submit the new serial numbers
+    const formData = new FormData();
+    formData.append('serial_numbers', serialNumbers);
+    
+    fetch(`/inventory_transfer/serial/items/${currentItemId}/add_more_serials`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Refresh the serial numbers display
+            showSerialNumbers(currentItemId, '');
+            // Refresh the main page to update counts
+            location.reload();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error adding serial numbers');
+    });
 }
 
 // Initialize Feather icons on page load
