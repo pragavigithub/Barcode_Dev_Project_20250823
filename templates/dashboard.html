@@ -43,11 +43,18 @@
                     {% endif %}
                 </div>
                 
-                {% if current_user.has_permission('user_management') or current_user.role in ['admin', 'manager'] %}
+                {% if current_user.has_permission('user_management') or current_user.has_permission('qc_dashboard') or current_user.role in ['admin', 'manager', 'qc'] %}
                 <hr>
                 <div class="row">
+                    {% if current_user.has_permission('qc_dashboard') %}
+                    <div class="col-md-6 mb-3">
+                        <a href="{{ url_for('qc_dashboard') }}" class="btn btn-outline-warning w-100">
+                            <i data-feather="shield-check"></i> QC Dashboard
+                        </a>
+                    </div>
+                    {% endif %}
                     {% if current_user.has_permission('user_management') %}
-                    <div class="col-md-12 mb-3">
+                    <div class="col-md-6 mb-3">
                         <a href="{{ url_for('user_management') }}" class="btn btn-outline-secondary w-100">
                             <i data-feather="users"></i> Manage Users
                         </a>

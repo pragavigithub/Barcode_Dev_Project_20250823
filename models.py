@@ -51,7 +51,8 @@ class User(UserMixin, db.Model):
         permissions = {
             'dashboard': True,
             'serial_transfer': False,
-            'user_management': False
+            'user_management': False,
+            'qc_dashboard': False
         }
 
         if self.role == 'admin':
@@ -61,11 +62,17 @@ class User(UserMixin, db.Model):
         elif self.role == 'manager':
             permissions.update({
                 'serial_transfer': True,
-                'user_management': True
+                'user_management': True,
+                'qc_dashboard': True
             })
         elif self.role == 'user':
             permissions.update({
                 'serial_transfer': True
+            })
+        elif self.role == 'qc':
+            permissions.update({
+                'serial_transfer': True,  # QC can view transfers
+                'qc_dashboard': True
             })
 
         return permissions
