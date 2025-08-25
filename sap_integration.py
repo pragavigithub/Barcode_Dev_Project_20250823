@@ -2861,7 +2861,7 @@ class SAPIntegration:
             import json
             logging.info(json.dumps(transfer_data, indent=2, default=str))
             logging.info("=" * 80)
-            
+            print(f"transfer_item (repr) --> {repr(transfer_data)}")
             # Submit to SAP B1
             response = self.session.post(url, json=transfer_data)
             
